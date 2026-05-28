@@ -181,6 +181,39 @@ class TestCoerceDateSeries:
         assert out.notna().sum() == 2
 
 
+class TestUtmProjection:
+    """Verifica o helper de projeção lon/lat → UTM usado nas análises espaciais."""
+
+    def test_southern_hemisphere_epsg(self):
+        from src.pages.spatial import _utm_epsg_from_lon
+        # Rio Verde, GO: ~ -17.8°, -51°  → UTM zone 22 South = EPSG 32722
+        assert _utm_epsg_from_lon(-51.0, -17.8) == 32722
+
+    def test_northern_hemisphere_epsg(self):
+        from src.pages.spatial import _utm_epsg_from_lon
+        # Lon -60°, lat 10° (norte da América do Sul) → UTM zone 21 Norte = EPSG 32621
+        assert _utm_epsg_from_lon(-60.0, 10.0) == 32621
+
+    def test_projection_returns_metres(self):
+        from src.pages.spatial import _project_lonlat_to_utm
+        lon = np.array([-51.0, -51.0])
+        lat = np.array([-17.8, -17.9])  # ~11 km de distância em latitude
+        x_m, y_m, epsg = _project_lonlat_to_utm(lon, lat)
+        # Distância no eixo Y deve ser ~11 km (1° lat ≈ 111 km, 0.1° ≈ 11 km)
+        assert epsg == 32722
+        dist_m = abs(y_m[0] - y_m[1])
+        assert 10_500 < dist_m < 11_500, f"esperado ~11 km, obtido {dist_m}"
+
+    def test_projection_handles_arrays(self):
+        from src.pages.spatial import _project_lonlat_to_utm
+        lon = np.linspace(-51.5, -50.7, 10)
+        lat = np.linspace(-18.0, -17.3, 10)
+        x_m, y_m, epsg = _project_lonlat_to_utm(lon, lat)
+        assert x_m.shape == lon.shape
+        assert y_m.shape == lat.shape
+        assert epsg > 0
+
+
 class TestBuildStepReport:
     def test_percent_removed(self):
         logs = [StepLog(step="test", before=100, after=80)]

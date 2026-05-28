@@ -66,6 +66,42 @@ def _robust_norm(values: np.ndarray):
     return Normalize(vmin=lo, vmax=hi)
 
 
+def _utm_epsg_from_lon(lon_mean: float, lat_mean: float = -1.0) -> int:
+    """EPSG do fuso UTM correspondente, escolhendo hemisfério via latitude."""
+    zone = int((lon_mean + 180) // 6) + 1
+    if lat_mean >= 0:
+        return 32600 + zone  # hemisfério norte
+    return 32700 + zone  # hemisfério sul
+
+
+def _project_lonlat_to_utm(
+    lon: np.ndarray, lat: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """Projeta arrays ``(lon, lat)`` em graus para metros UTM.
+
+    Retorna ``(x_m, y_m, epsg)``. O EPSG é escolhido pelo fuso UTM da longitude
+    média e hemisfério da latitude média. Tenta ``pyproj`` primeiro; se não
+    estiver disponível, cai numa aproximação equirretangular local (boa para
+    áreas pequenas como a do projeto, com erro < 0,5 % em < 50 km).
+    """
+    lon_arr = np.asarray(lon, dtype=float)
+    lat_arr = np.asarray(lat, dtype=float)
+    lon_mean = float(np.nanmean(lon_arr))
+    lat_mean = float(np.nanmean(lat_arr))
+    epsg = _utm_epsg_from_lon(lon_mean, lat_mean)
+    try:
+        from pyproj import Transformer
+    except ImportError:
+        m_per_deg_lat = 111_320.0
+        m_per_deg_lon = 111_320.0 * float(np.cos(np.radians(lat_mean)))
+        x_m = (lon_arr - lon_mean) * m_per_deg_lon
+        y_m = (lat_arr - lat_mean) * m_per_deg_lat
+        return x_m, y_m, 0  # epsg=0 sinaliza fallback aproximado
+    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True)
+    x_m, y_m = transformer.transform(lon_arr, lat_arr)
+    return np.asarray(x_m, dtype=float), np.asarray(y_m, dtype=float), epsg
+
+
 def _idw_grid(
     lon: np.ndarray,
     lat: np.ndarray,
@@ -75,8 +111,11 @@ def _idw_grid(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Interpolação IDW manual em grid regular.
 
-    Retorna (xi, yi, zi) onde xi e yi são as coordenadas do grid 1D e zi
-    é a matriz interpolada (shape (grid_size, grid_size)).
+    O grid de saída (xi, yi) está em **graus** para preservar a leitura
+    geográfica nos eixos do imshow, mas as distâncias usadas no cálculo dos
+    pesos são em **metros UTM** — corrige a anisotropia que aparece em
+    latitudes médias quando se computa distância Euclidiana em graus
+    (1° lat ≈ 110 km vs. 1° lon ≈ 105 km em -17,8°).
     """
     lon_min, lon_max = float(np.min(lon)), float(np.max(lon))
     lat_min, lat_max = float(np.min(lat)), float(np.max(lat))
@@ -86,8 +125,11 @@ def _idw_grid(
     yi = np.linspace(lat_min - lat_pad, lat_max + lat_pad, grid_size)
     XI, YI = np.meshgrid(xi, yi)
 
-    pts = np.column_stack([lon, lat])
-    grid_pts = np.column_stack([XI.ravel(), YI.ravel()])
+    obs_x, obs_y, _ = _project_lonlat_to_utm(lon, lat)
+    grid_x, grid_y, _ = _project_lonlat_to_utm(XI.ravel(), YI.ravel())
+    pts = np.column_stack([obs_x, obs_y])
+    grid_pts = np.column_stack([grid_x, grid_y])
+
     diff = grid_pts[:, None, :] - pts[None, :, :]
     dist = np.sqrt((diff ** 2).sum(axis=2))
     eps = 1e-12
@@ -224,11 +266,15 @@ def _render_moran_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
         st.info(t("spatial.moran.too_few", n=len(work)))
         return
 
-    coords = work[[LON_COL, LAT_COL]].to_numpy()
     y = work[target].to_numpy()
+    # KNN em metros UTM: a ordem dos vizinhos passa a ser isotrópica.
+    obs_x_m, obs_y_m, _ = _project_lonlat_to_utm(
+        work[LON_COL].to_numpy(), work[LAT_COL].to_numpy()
+    )
+    coords_utm = np.column_stack([obs_x_m, obs_y_m])
 
     try:
-        w = KNN.from_array(coords, k=k)
+        w = KNN.from_array(coords_utm, k=k)
         w.transform = "r"
         moran = Moran(y, w, permutations=n_perm)
         local = Moran_Local(y, w, permutations=n_perm)
@@ -332,22 +378,32 @@ def _render_gistar_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
         st.info(t("spatial.gistar.too_few", n=len(work)))
         return
 
-    coords = work[[LON_COL, LAT_COL]].to_numpy()
     y = work[target].to_numpy()
+
+    # Para o Getis-Ord usamos coordenadas em metros UTM — o raio d* da
+    # distance-band fica então em metros, fisicamente interpretável, e não
+    # sofre a distorção anisotrópica de lat/lon em graus.
+    obs_x_m, obs_y_m, epsg = _project_lonlat_to_utm(
+        work[LON_COL].to_numpy(), work[LAT_COL].to_numpy()
+    )
+    coords_utm = np.column_stack([obs_x_m, obs_y_m])
 
     try:
         # Distance-band threshold: max of each point's distance to its k-th nearest
         # neighbour, scaled by 1.001 to ensure all k-th neighbours are included.
         # This follows the methodology specification (Getis & Ord 1992).
-        tree = cKDTree(coords)
-        kth_dist, _ = tree.query(coords, k=k + 1)  # k+1 because index 0 is self
+        tree = cKDTree(coords_utm)
+        kth_dist, _ = tree.query(coords_utm, k=k + 1)  # k+1 because index 0 is self
         d_star = float(kth_dist[:, -1].max() * 1.001)
-        w = DistanceBand.from_array(coords, threshold=d_star, binary=False)
+        w = DistanceBand.from_array(coords_utm, threshold=d_star, binary=False)
         w.transform = "r"
         gi = G_Local(y, w, star=True, permutations=n_perm)
     except Exception as exc:
         st.error(t("spatial.gistar.error", error=str(exc)))
         return
+
+    crs_label = f"EPSG:{epsg}" if epsg > 0 else t("spatial.crs.local_equirect")
+    st.caption(t("spatial.gistar.d_star_caption", d_star=f"{d_star:,.0f}", crs=crs_label))
 
     classes = np.full(len(work), "NS", dtype=object)
     sig = gi.p_sim < alpha
@@ -392,11 +448,6 @@ def _render_gistar_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
         file_name=f"gistar_{target}.csv",
         mime="text/csv",
     )
-
-
-def _utm_epsg_from_lon(lon_mean: float) -> int:
-    zone = int((lon_mean + 180) // 6) + 1
-    return 32700 + zone  # southern hemisphere
 
 
 def _render_utmgrid_section(df: pd.DataFrame, numeric_cols: list[str], cat_cols: list[str]) -> None:
@@ -591,10 +642,19 @@ def _render_kriging_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     if winsorize:
         lo, hi = np.percentile(z, [2, 98])
         z = np.clip(z, lo, hi)
-    coords = work[[LON_COL, LAT_COL]].to_numpy(dtype=float)
+
+    # Distâncias em metros (UTM) — antes computávamos a Euclidiana em graus,
+    # o que inflate o eixo Y em ~5% em latitude -17,8° e dá range em "graus",
+    # sem unidade física para o usuário.
+    obs_lon = work[LON_COL].to_numpy(dtype=float)
+    obs_lat = work[LAT_COL].to_numpy(dtype=float)
+    obs_x_m, obs_y_m, epsg = _project_lonlat_to_utm(obs_lon, obs_lat)
+    coords_utm = np.column_stack([obs_x_m, obs_y_m])
 
     try:
-        centers, gammas, counts, h_max = _empirical_variogram(coords, z, n_lags=n_lags, max_frac=max_frac)
+        centers, gammas, counts, h_max = _empirical_variogram(
+            coords_utm, z, n_lags=n_lags, max_frac=max_frac
+        )
         if centers.size < 3:
             st.info(t("spatial.kriging.few_lags"))
             return
@@ -607,33 +667,37 @@ def _render_kriging_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax_v.plot(centers, gammas, "o", color="#0f766e", label=t("spatial.kriging.empirical"))
     h_smooth = np.linspace(0, centers.max(), 200)
     ax_v.plot(h_smooth, _spherical(h_smooth, nugget, sill, rng), "-", color="#d7191c", label=t("spatial.kriging.spherical"))
-    ax_v.set_xlabel(t("spatial.kriging.lag_h"))
+    ax_v.set_xlabel(t("spatial.kriging.lag_h_m"))
     ax_v.set_ylabel(t("spatial.kriging.semivariance"))
     ax_v.set_title(t("spatial.kriging.variogram_title", var=target))
     ax_v.legend()
     st.pyplot(fig_v)
     plt.close(fig_v)
 
+    crs_label = f"EPSG:{epsg}" if epsg > 0 else t("spatial.crs.local_equirect")
+    st.caption(t("spatial.kriging.units_caption", crs=crs_label))
     c1, c2, c3 = st.columns(3)
     c1.metric(t("spatial.kriging.metric_nugget"), f"{nugget:.4g}")
     c2.metric(t("spatial.kriging.metric_sill"), f"{sill:.4g}")
-    c3.metric(t("spatial.kriging.metric_range"), f"{rng:.4g}")
+    c3.metric(t("spatial.kriging.metric_range_m"), f"{rng:,.0f} m")
 
     if not st.checkbox(t("spatial.kriging.run_ok"), value=False, key="spatial_krig_run"):
         st.info(t("spatial.kriging.toggle_to_run"))
         return
 
-    lon_min, lon_max = coords[:, 0].min(), coords[:, 0].max()
-    lat_min, lat_max = coords[:, 1].min(), coords[:, 1].max()
+    # Grid de saída em lat/lon (para o eixo do mapa); cálculo do kriging em UTM.
+    lon_min, lon_max = obs_lon.min(), obs_lon.max()
+    lat_min, lat_max = obs_lat.min(), obs_lat.max()
     lon_pad = (lon_max - lon_min) * 0.05 or 1e-3
     lat_pad = (lat_max - lat_min) * 0.05 or 1e-3
     xi = np.linspace(lon_min - lon_pad, lon_max + lon_pad, grid_size)
     yi = np.linspace(lat_min - lat_pad, lat_max + lat_pad, grid_size)
     XI, YI = np.meshgrid(xi, yi)
-    grid_xy = np.column_stack([XI.ravel(), YI.ravel()])
+    grid_x_m, grid_y_m, _ = _project_lonlat_to_utm(XI.ravel(), YI.ravel())
+    grid_xy_utm = np.column_stack([grid_x_m, grid_y_m])
 
     try:
-        pred = _ordinary_kriging(coords, z, grid_xy, nugget, sill, rng).reshape(XI.shape)
+        pred = _ordinary_kriging(coords_utm, z, grid_xy_utm, nugget, sill, rng).reshape(XI.shape)
     except Exception as exc:
         st.error(t("spatial.kriging.error", error=str(exc)))
         return
@@ -648,7 +712,7 @@ def _render_kriging_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
         norm=norm,
         aspect="auto",
     )
-    ax_k.scatter(coords[:, 0], coords[:, 1], c="white", edgecolor="black", s=22, linewidths=0.5)
+    ax_k.scatter(obs_lon, obs_lat, c="white", edgecolor="black", s=22, linewidths=0.5)
     ax_k.set_xlabel(t("spatial.longitude"))
     ax_k.set_ylabel(t("spatial.latitude"))
     ax_k.set_title(t("spatial.kriging.surface_title", var=target))
