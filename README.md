@@ -9,6 +9,13 @@
 
 ---
 
+> ### 📖 [**System Operation Manual →**](./docs/manual.pt.md)
+>
+> End-to-end walkthrough: installation, data upload, cleaning pipeline, EDA, modeling, spatial analysis, time series, group comparison, statistical glossary, and FAQ. **15 chapters, 26 screenshots.**
+> *Currently available in Portuguese; English and Spanish translations are planned.*
+
+---
+
 ## 📋 Overview
 
 This repository contains the Streamlit application developed to consolidate the cleaning, descriptive analysis, predictive modeling, and geospatial modeling workflow of **Crop Physiology** field datasets. The application validates data collected by photosynthesis systems (IRGA), chlorophyll meters, and ceptometers, applying an automated pipeline for cleaning and advanced analysis.

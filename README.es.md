@@ -9,6 +9,13 @@
 
 ---
 
+> ### 📖 [**Manual de Operación del Sistema →**](./docs/manual.pt.md)
+>
+> Guía paso a paso completa: instalación, carga de datos, pipeline de limpieza, EDA, modelado, análisis espacial, serie temporal, comparación por grupos, glosario estadístico y FAQ. **15 capítulos, 26 capturas de pantalla.**
+> *Actualmente disponible en portugués; se planean traducciones al inglés y al español.*
+
+---
+
 ## 📋 Visión General
 
 Este repositorio contiene la aplicación Streamlit desarrollada para consolidar el flujo de tratamiento, análisis descriptivo, modelado predictivo y geoespacial de datos de **Fisiología Vegetal**. El aplicativo valida planillas de campo que contienen datos recolectados por analizadores de fotosíntesis (IRGA), clorofilómetros y ceptómetros, aplicando un pipeline automatizado de limpieza y análisis avanzado.
