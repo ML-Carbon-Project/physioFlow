@@ -1,0 +1,63 @@
+# This CITATION.cff file follows the Citation File Format v1.2.0 specification
+# (https://citation-file-format.github.io). GitHub renders this file as a
+# clickable "Cite this repository" widget on the repository home page.
+cff-version: 1.2.0
+title: "PhysioFlow: an interactive platform for crop ecophysiology data analysis with statistical guard-rails"
+message: "If you use this software, please cite it using the metadata in this file."
+type: software
+authors:
+  - family-names: "Silva"
+    given-names: "Daniel Hilário da"
+    orcid: "https://orcid.org/0000-0002-0800-065X"
+    affiliation: "Instituto Federal Goiano – Campus Rio Verde"
+  - family-names: "Souza"
+    given-names: "Leandro Rodrigues da Silva"
+    email: "leandrorodrigues.s@gmail.com"
+repository-code: "https://github.com/danielhilario-if/physioflow"
+url: "https://github.com/danielhilario-if/physioflow"
+abstract: >-
+  PhysioFlow is an open-source, interactive web application for processing,
+  exploring, modelling and visualising ecophysiological field datasets from
+  IRGA, chlorophyll meter and ceptometer instruments. It bundles schema
+  validation, a six-mode replicate-handling pipeline, exploratory data analysis
+  with statistical guard-rails (categorical confounding via Cramér's V,
+  multicollinearity via VIF with derived-variable awareness, Kruskal-Wallis with
+  minimum-N filtering, normality tests with companion Q-Q plots, multi-method
+  outlier consensus), predictive modelling with optional GroupKFold for
+  pseudoreplication, geospatial analysis in UTM metres (IDW, Moran's I, LISA,
+  Getis-Ord Gi*, ordinary kriging with spherical semivariogram), STL time-series
+  decomposition with sparsity guard-rails, and pairwise group comparison
+  (Mann-Whitney, log-linear, hourly patterns). Trilingual interface (PT/EN/ES).
+keywords:
+  - ecophysiology
+  - crop physiology
+  - soybean
+  - sugarcane
+  - photosynthesis
+  - IRGA
+  - chlorophyll
+  - leaf area index
+  - exploratory data analysis
+  - kriging
+  - Moran's I
+  - GroupKFold
+  - pseudoreplication
+  - Streamlit
+  - reproducible research
+version: "1.0.0"
+date-released: "2026-05-28"
+license: GPL-2.0-or-later
+# Once a Zenodo DOI is minted for this release, replace the placeholder below.
+# doi: "10.5281/zenodo.XXXXXXX"
+preferred-citation:
+  type: software
+  title: "PhysioFlow: an interactive platform for crop ecophysiology data analysis with statistical guard-rails"
+  authors:
+    - family-names: "Silva"
+      given-names: "Daniel Hilário da"
+      orcid: "https://orcid.org/0000-0002-0800-065X"
+      affiliation: "Instituto Federal Goiano – Campus Rio Verde"
+    - family-names: "Souza"
+      given-names: "Leandro Rodrigues da Silva"
+  year: 2026
+  url: "https://github.com/danielhilario-if/physioflow"

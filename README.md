@@ -9,10 +9,10 @@
 
 ---
 
-> ### 📖 [**System Operation Manual →**](./docs/manual.pt.md)
+> ### 📖 [**System Operation Manual →**](./docs/manual.en.md)
 >
 > End-to-end walkthrough: installation, data upload, cleaning pipeline, EDA, modeling, spatial analysis, time series, group comparison, statistical glossary, and FAQ. **15 chapters, 26 screenshots.**
-> *Currently available in Portuguese; English and Spanish translations are planned.*
+> *Extended abstract and introductory chapter available in English; complete edition currently in Portuguese — see [`manual.pt.md`](./docs/manual.pt.md). Spanish edition: incremental translation in progress.*
 
 ---
 

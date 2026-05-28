@@ -3,15 +3,39 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chamberflux"
+name = "physioflow"
 version = "1.0.0"
-description = "Open-source interactive analysis platform for soil GHG flux analysis from LI-COR LI-7810SC and LI-7820 trace gas analyzers"
+description = "Open-source interactive platform for crop ecophysiology data analysis (photosynthesis, transpiration, chlorophyll, LAI) with schema validation, statistical guard-rails, replicate handling and geospatial modules"
 authors = [
     {name = "Leandro Rodrigues da Silva Souza", email = "leandrorodrigues.s@gmail.com"},
+    {name = "Daniel Hilário da Silva"},
 ]
 license = {text = "GPL-2.0-or-later"}
 readme = "README.md"
 requires-python = ">=3.10"
+keywords = [
+    "ecophysiology",
+    "crop physiology",
+    "streamlit",
+    "soybean",
+    "sugarcane",
+    "IRGA",
+    "chlorophyll",
+    "kriging",
+    "spatial statistics",
+    "Moran's I",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: GIS",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q --cov=src --cov-report=term-missing --cov-report=xml"

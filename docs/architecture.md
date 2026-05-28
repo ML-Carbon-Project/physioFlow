@@ -1,6 +1,6 @@
 # Architecture
 
-`chamberflux` is a single-page Streamlit application backed by a
+`physioflow` is a single-page Streamlit application backed by a
 small Python package under `src/`. The runtime is a single process; data is
 held in `st.session_state` and cached with `@st.cache_data` to avoid re-parsing
 files between page navigations.

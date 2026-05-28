@@ -1,6 +1,6 @@
 # Data Dictionary
 
-This document describes the reference column schema that the ChamberFlux application validates uploaded datasets against. It is derived from the canonical `ColumnSpec` declarations in [`src/schema.py`](../src/schema.py); update this file whenever `SCHEMA_SPECS` changes.
+This document describes the reference column schema that the PhysioFlow application validates uploaded datasets against. It is derived from the canonical `ColumnSpec` declarations in [`src/schema.py`](../src/schema.py); update this file whenever `SCHEMA_SPECS` changes.
 
 The schema is modelled on the tabular CSV/XLSX export produced by the LI-COR LI-7810SC trace gas analyzer combined with the 8200-01S Smart Chamber, and on the LI-7820 N₂O/H₂O analyzer. Datasets that do not originate from these instruments are accepted as long as they expose columns with one of the recognised candidate names.
 

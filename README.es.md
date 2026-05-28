@@ -9,10 +9,10 @@
 
 ---
 
-> ### 📖 [**Manual de Operación del Sistema →**](./docs/manual.pt.md)
+> ### 📖 [**Manual de Operación del Sistema →**](./docs/manual.es.md)
 >
 > Guía paso a paso completa: instalación, carga de datos, pipeline de limpieza, EDA, modelado, análisis espacial, serie temporal, comparación por grupos, glosario estadístico y FAQ. **15 capítulos, 26 capturas de pantalla.**
-> *Actualmente disponible en portugués; se planean traducciones al inglés y al español.*
+> *Edición completa actualmente en portugués: [`manual.pt.md`](./docs/manual.pt.md). Edición en inglés con resumen extendido: [`manual.en.md`](./docs/manual.en.md). Traducción incremental al español en curso.*
 
 ---
 

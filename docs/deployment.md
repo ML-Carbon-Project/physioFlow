@@ -18,8 +18,8 @@ For a Docker-based one-command deployment, see the v1.1 roadmap.
 ### Option A — `pip` venv (recommended for v1.0; Linux/macOS/Windows)
 
 ```bash
-git clone https://github.com/danielhilario-if/chamberflux.git
-cd chamberflux
+git clone https://github.com/danielhilario-if/physioflow.git
+cd physioflow
 python3.10 -m venv .venv
 source .venv/bin/activate         # or .venv\Scripts\Activate.ps1 on Windows
 pip install -U pip wheel
