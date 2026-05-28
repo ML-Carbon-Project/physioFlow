@@ -21,17 +21,11 @@ import streamlit as st
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
+from src.pipeline import DATE_COLUMN_CANDIDATES, coerce_date_series, find_date_column
 
-DATE_CANDIDATES = (
-    "DATE_TIME initial_value",
-    "Data",
-    "Date",
-    "DATE",
-    "Date_Time",
-    "DateTime",
-    "data",
-    "date",
-)
+# Mantido para retrocompatibilidade: usuários externos podem importar
+# DATE_CANDIDATES desta página.
+DATE_CANDIDATES = DATE_COLUMN_CANDIDATES
 
 
 def _first_existing(df: pd.DataFrame, candidates) -> Optional[str]:
@@ -190,7 +184,18 @@ def _render_hourly_tab(df: pd.DataFrame, group_col: str, numeric_cols: list[str]
     st.markdown(f"#### {t('comparative.hourly.title')}")
     st.caption(t("comparative.hourly.caption"))
 
-    date_options = [c for c in df.columns if c in DATE_CANDIDATES or pd.api.types.is_datetime64_any_dtype(df[c])]
+    # Lista de candidatos cresce o conjunto detectado: nomes conhecidos,
+    # dtype datetime64, e colunas object com conteúdo majoritariamente datetime.
+    date_options: list[str] = []
+    primary = find_date_column(df)
+    if primary is not None:
+        date_options.append(primary)
+    for c in df.columns:
+        if c in date_options:
+            continue
+        if c in DATE_CANDIDATES or pd.api.types.is_datetime64_any_dtype(df[c]):
+            date_options.append(c)
+
     if not date_options:
         st.info(t("comparative.hourly.missing_cols"))
         return
@@ -212,7 +217,7 @@ def _render_hourly_tab(df: pd.DataFrame, group_col: str, numeric_cols: list[str]
     )
 
     work = df[[group_col, date_col, y_col]].copy()
-    work[date_col] = pd.to_datetime(work[date_col], errors="coerce")
+    work[date_col] = coerce_date_series(work[date_col])
     work = work.dropna(subset=[date_col, y_col])
     if work.empty:
         st.info(t("comparative.hourly.no_data"))

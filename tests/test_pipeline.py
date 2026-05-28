@@ -13,6 +13,8 @@ from src.pipeline import (
     StepLog,
     build_step_report,
     clean_fisiologia_data,
+    coerce_date_series,
+    find_date_column,
     find_first_existing,
 )
 
@@ -137,6 +139,46 @@ class TestCleanFisiologiaData:
         # média puxa o resultado pelo outlier; mediana descarta-o
         assert media_clean.iloc[0]["IAF_media"] == pytest.approx((3.0 + 3.1 + 99.0) / 3)
         assert mediana_clean.iloc[0]["IAF_media"] == pytest.approx(3.1)
+
+
+class TestFindDateColumn:
+    def test_finds_canonical_name(self):
+        df = pd.DataFrame({"Data da coleta": pd.date_range("2025-01-01", periods=5)})
+        assert find_date_column(df) == "Data da coleta"
+
+    def test_finds_datetime64_by_dtype(self):
+        df = pd.DataFrame({"foo_date": pd.date_range("2025-01-01", periods=5), "other": [1] * 5})
+        assert find_date_column(df) == "foo_date"
+
+    def test_finds_object_with_datetime_mixture(self):
+        # Cenário do dataset real: Excel devolve object com datetime + str + NaN
+        import datetime as dt
+        col = [dt.datetime(2025, 12, 19)] * 3 + ["1/16/2026", np.nan, np.nan, np.nan]
+        df = pd.DataFrame({"Outra": ["x"] * 7, "Data da coleta": col})
+        assert find_date_column(df) == "Data da coleta"
+
+    def test_returns_none_when_no_date(self):
+        df = pd.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "c"]})
+        assert find_date_column(df) is None
+
+    def test_returns_none_for_empty_df(self):
+        assert find_date_column(pd.DataFrame()) is None
+
+
+class TestCoerceDateSeries:
+    def test_passes_through_datetime64(self):
+        s = pd.Series(pd.date_range("2025-01-01", periods=3))
+        out = coerce_date_series(s)
+        assert out is s or out.equals(s)
+        assert pd.api.types.is_datetime64_any_dtype(out)
+
+    def test_coerces_mixed_object_to_datetime(self):
+        import datetime as dt
+        s = pd.Series([dt.datetime(2025, 12, 19), "1/16/2026", np.nan, "garbage"])
+        out = coerce_date_series(s)
+        assert pd.api.types.is_datetime64_any_dtype(out)
+        # Linha válida real → datetime; "garbage" e NaN → NaT
+        assert out.notna().sum() == 2
 
 
 class TestBuildStepReport:

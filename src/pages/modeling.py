@@ -5,7 +5,7 @@ import pandas as pd
 import seaborn as sns
 import streamlit as st
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import KFold, cross_val_score, train_test_split
+from sklearn.model_selection import GroupKFold, KFold, cross_val_score, train_test_split
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import MODEL_DEFAULT_FEATURES
@@ -59,6 +59,47 @@ def render():
     test_size = c1.slider(t("modeling.holdout"), 0.10, 0.40, 0.30, 0.05)
     cv_folds = c2.slider(t("modeling.cv_folds"), 3, 10, 5, 1)
 
+    # Estratégia de validação cruzada: KFold ingênuo trata cada réplica como
+    # independente — o que infla R² holdout/CV quando há pseudoreplicação
+    # (várias medições no mesmo sítio). GroupKFold permite agrupar por
+    # Fazenda + Ponto (ou outra coluna escolhida pelo usuário) para que todas
+    # as réplicas de um sítio fiquem juntas no mesmo fold.
+    cv_strategy = st.radio(
+        t("modeling.cv_strategy"),
+        options=["random", "group"],
+        format_func=lambda key: t(f"modeling.cv_strategy.{key}"),
+        horizontal=True,
+        key="modeling_cv_strategy",
+        help=t("modeling.cv_strategy_help"),
+    )
+
+    group_col_candidates: list[str] = []
+    group_col_choice: str | None = None
+    if cv_strategy == "group":
+        group_col_candidates = [
+            c for c in df.columns
+            if not pd.api.types.is_numeric_dtype(df[c]) and 2 <= df[c].nunique(dropna=True)
+        ]
+        # Adiciona uma opção sintética combinando Fazenda+Ponto quando ambas existem
+        composite_label = None
+        if "Fazenda" in df.columns and "Ponto" in df.columns:
+            composite_label = "Fazenda + Ponto"
+            group_col_candidates = [composite_label] + group_col_candidates
+        if not group_col_candidates:
+            st.warning(t("modeling.warn_no_group_col"))
+            cv_strategy = "random"
+        else:
+            default_group = composite_label or next(
+                (c for c in ("Fazenda", "ID", "LABEL") if c in group_col_candidates),
+                group_col_candidates[0],
+            )
+            group_col_choice = st.selectbox(
+                t("modeling.cv_group_col"),
+                options=group_col_candidates,
+                index=group_col_candidates.index(default_group),
+                key="modeling_cv_group_col",
+            )
+
     df_model = df.dropna(subset=features + [target]).copy()
     if len(df_model) < 30:
         st.warning(t("modeling.warn_too_few_rows"))
@@ -73,8 +114,33 @@ def render():
     ]
     categorical_features = [column for column in features if column not in numeric_features]
 
+    # Resolve a coluna de agrupamento (pode ser sintética "Fazenda + Ponto").
+    groups = None
+    if cv_strategy == "group" and group_col_choice is not None:
+        if group_col_choice == "Fazenda + Ponto":
+            groups = (
+                df_model["Fazenda"].astype(str) + "__" + df_model["Ponto"].astype(str)
+            )
+        else:
+            groups = df_model[group_col_choice].astype(str)
+
+        n_groups = int(groups.nunique())
+        if n_groups < cv_folds:
+            st.warning(
+                t(
+                    "modeling.warn_groups_lt_folds",
+                    n_groups=n_groups,
+                    folds=cv_folds,
+                    new_folds=max(2, n_groups),
+                )
+            )
+            cv_folds = max(2, n_groups)
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
-    cv = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
+    if cv_strategy == "group":
+        cv = GroupKFold(n_splits=cv_folds)
+    else:
+        cv = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
 
     results = []
     model_details: dict[str, pd.DataFrame] = {}
@@ -88,7 +154,10 @@ def render():
         try:
             pipeline.fit(X_train, y_train)
             predictions = pipeline.predict(X_test)
-            cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2")
+            if groups is not None:
+                cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2", groups=groups)
+            else:
+                cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2")
         except Exception as exc:
             failures.append(t("modeling.warn_train_failed", error=f"{t(model_def.label_key)}: {exc}"))
             continue

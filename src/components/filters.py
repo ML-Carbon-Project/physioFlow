@@ -4,7 +4,12 @@ import pandas as pd
 import streamlit as st
 
 from src.i18n import t
-from src.pipeline import clean_fisiologia_data, find_first_existing
+from src.pipeline import (
+    clean_fisiologia_data,
+    coerce_date_series,
+    find_date_column,
+    find_first_existing,
+)
 from src.state import get_raw_dataframe, set_processed_dataset
 
 
@@ -121,12 +126,17 @@ def render_page_filters(df: pd.DataFrame) -> pd.DataFrame:
 
         with c6:
             # 6. Filtro de Período (Data de Coleta)
-            col_data = find_first_existing(filtered_df, ["Data da coleta", "Data", "Date", "DATE"])
+            col_data = find_date_column(filtered_df)
             if col_data:
                 try:
-                    filtered_df[col_data] = pd.to_datetime(filtered_df[col_data])
-                    min_date = filtered_df[col_data].min().date()
-                    max_date = filtered_df[col_data].max().date()
+                    filtered_df[col_data] = coerce_date_series(filtered_df[col_data])
+                    # Após a coerção, NaTs aparecem onde havia strings inválidas;
+                    # ignoramos esses valores para definir a faixa selecionável.
+                    valid_dates = filtered_df[col_data].dropna()
+                    if valid_dates.empty:
+                        raise ValueError("nenhuma data válida")
+                    min_date = valid_dates.min().date()
+                    max_date = valid_dates.max().date()
                     
                     if min_date < max_date:
                         selected_dates = st.date_input(

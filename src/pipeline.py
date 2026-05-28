@@ -32,6 +32,81 @@ def find_first_existing(df: pd.DataFrame, candidates: Iterable[str]) -> Optional
     return None
 
 
+# Lista canônica de candidatos a coluna de data, em ordem de preferência.
+# Inclui as variantes que historicamente apareceram nos três datasets do projeto
+# (fisiologia, fluxo de solo) — qualquer página deve usar find_date_column ao
+# invés de manter sua própria lista.
+DATE_COLUMN_CANDIDATES: tuple[str, ...] = (
+    "Data da coleta",
+    "Data",
+    "Date",
+    "DATE",
+    "data",
+    "date",
+    "DATE_TIME initial_value",
+    "Date_Time",
+    "DateTime",
+    "datetime",
+)
+
+
+def _looks_like_datetime_object_series(series: pd.Series, sample: int = 50) -> bool:
+    """True se uma série dtype=object tem pelo menos 30% de valores parseáveis como data.
+
+    Útil quando o Excel devolve mistura de datetime.datetime, str e NaN num mesmo
+    objeto (caso do dataset de fisiologia do projeto).
+    """
+    if series.empty:
+        return False
+    head = series.dropna().head(sample)
+    if head.empty:
+        return False
+    coerced = pd.to_datetime(head, errors="coerce")
+    return coerced.notna().sum() / len(head) >= 0.3
+
+
+def find_date_column(df: pd.DataFrame, extra_candidates: Iterable[str] = ()) -> Optional[str]:
+    """Detecta a coluna de data em ``df`` de forma robusta.
+
+    Ordem de busca:
+    1. Candidatos explícitos (extras passados pelo chamador + DATE_COLUMN_CANDIDATES).
+    2. Qualquer coluna com dtype datetime64.
+    3. Qualquer coluna object cuja amostra seja majoritariamente parseável como data
+       (típico do Excel com mistura ``datetime.datetime`` + ``str``).
+
+    Retorna o nome da coluna ou ``None``.
+    """
+    if df is None or df.empty:
+        return None
+
+    candidates = list(extra_candidates) + list(DATE_COLUMN_CANDIDATES)
+    found = find_first_existing(df, candidates)
+    if found is not None:
+        return found
+
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            return col
+
+    for col in df.columns:
+        if df[col].dtype == object and _looks_like_datetime_object_series(df[col]):
+            return col
+
+    return None
+
+
+def coerce_date_series(series: pd.Series) -> pd.Series:
+    """Coerce uma série heterogênea (datetime + str + NaN) para datetime64.
+
+    Valores impossíveis viram NaT (não levantam exceção). Garante que páginas
+    consumidoras (séries temporais, filtros de data) possam usar ``.dt`` sem
+    crashar quando o Excel devolveu object dtype.
+    """
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return series
+    return pd.to_datetime(series, errors="coerce")
+
+
 def load_uploaded_file(uploaded_file, sheet_name: Optional[str] = None) -> pd.DataFrame:
     name = uploaded_file.name.lower()
     if name.endswith(".csv"):

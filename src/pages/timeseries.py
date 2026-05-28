@@ -11,23 +11,16 @@ import streamlit as st
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
-
-_DATE_CANDIDATES = ("Data", "Date", "DATE", "data", "date", "Date_Time", "DateTime")
+from src.pipeline import coerce_date_series, find_date_column
 
 
 def _find_date_column(df: pd.DataFrame) -> Optional[str]:
-    for candidate in _DATE_CANDIDATES:
-        if candidate in df.columns:
-            return candidate
-    for col in df.columns:
-        if pd.api.types.is_datetime64_any_dtype(df[col]):
-            return col
-    return None
+    return find_date_column(df)
 
 
 def _aggregate_daily(df: pd.DataFrame, date_col: str, target: str, agg: str) -> pd.Series:
     work = df[[date_col, target]].dropna().copy()
-    work[date_col] = pd.to_datetime(work[date_col], errors="coerce")
+    work[date_col] = coerce_date_series(work[date_col])
     work = work.dropna(subset=[date_col])
     if work.empty:
         return pd.Series(dtype=float)

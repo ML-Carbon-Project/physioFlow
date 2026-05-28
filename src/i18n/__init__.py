@@ -39,13 +39,25 @@ def t(key: str, **params: Any) -> str:
     """Retorna a traducao da chave no idioma corrente.
 
     Aplica ``str.format(**params)`` quando ha parametros nomeados.
-    Se a chave nao existir no idioma atual, faz fallback para o idioma padrao
-    e, em ultimo caso, retorna a propria chave para facilitar a depuracao.
+
+    Resolucao em ordem:
+    1. Locale ativo.
+    2. Locale padrao (``DEFAULT_LANGUAGE``).
+    3. Argumento ``default=`` (se passado).
+    4. Propria chave (para facilitar depuracao).
+
+    O parametro ``default`` e tratado a parte e nao e propagado para
+    ``str.format``; os demais ``**params`` viram placeholders nomeados.
     """
+    fallback = params.pop("default", None)
+
     language = get_language()
     template = TRANSLATIONS.get(language, {}).get(key)
     if template is None:
-        template = TRANSLATIONS[DEFAULT_LANGUAGE].get(key, key)
+        template = TRANSLATIONS[DEFAULT_LANGUAGE].get(key)
+    if template is None:
+        template = fallback if fallback is not None else key
+
     if params:
         try:
             return template.format(**params)

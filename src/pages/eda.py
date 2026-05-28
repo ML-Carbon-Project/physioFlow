@@ -11,8 +11,8 @@ from src.config.settings import EDA_DEFAULT_DISTRIBUTION_COLUMNS, EDA_DEFAULT_PA
 from src.i18n import t
 
 def _find_date_column(df: pd.DataFrame) -> str | None:
-    from src.pipeline import find_first_existing
-    return find_first_existing(df, ["Data da coleta", "Data", "Date", "DATE"])
+    from src.pipeline import find_date_column
+    return find_date_column(df)
 
 
 def render():
@@ -118,6 +118,38 @@ def render():
             )
             counts = df[cat_col].value_counts(dropna=False).rename_axis(cat_col).reset_index(name="count")
             st.dataframe(counts, use_container_width=True)
+
+            # Auditoria de confundimento: quando dois fatores categóricos particionam
+            # as linhas da mesma forma, qualquer "efeito" atribuído a um deles é
+            # indistinguível do outro. Mostrar antes das análises ajuda a evitar
+            # leituras causais ingênuas no Moran's I, KW e comparativa.
+            st.markdown(f"##### {t('eda.quality.confounding_title')}")
+            st.caption(t("eda.quality.confounding_caption"))
+            from src.stats_utils import detect_confounded_pairs
+            pairs = detect_confounded_pairs(df, cat_cols)
+            if not pairs:
+                st.success(t("eda.quality.confounding_none"))
+            else:
+                rows = []
+                for p in pairs:
+                    if p.is_redundant:
+                        relation = t("eda.quality.confounding.redundant")
+                    elif p.determines_a_to_b >= 0.95 and p.determines_b_to_a < 0.95:
+                        relation = t("eda.quality.confounding.determines", src=p.col_a, dst=p.col_b)
+                    elif p.determines_b_to_a >= 0.95 and p.determines_a_to_b < 0.95:
+                        relation = t("eda.quality.confounding.determines", src=p.col_b, dst=p.col_a)
+                    else:
+                        relation = t("eda.quality.confounding.partial")
+                    rows.append({
+                        t("eda.quality.confounding.col_a"): p.col_a,
+                        t("eda.quality.confounding.col_b"): p.col_b,
+                        t("eda.quality.confounding.cramers_v"): round(p.cramers_v, 3),
+                        t("eda.quality.confounding.relation"): relation,
+                        t("eda.quality.confounding.n_obs"): p.n_obs,
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
+                if any(p.is_redundant for p in pairs):
+                    st.warning(t("eda.quality.confounding_warning"))
 
     # ---------------- Tab 2: bivariate (univariate distributions) ----------------
     with tab2:
