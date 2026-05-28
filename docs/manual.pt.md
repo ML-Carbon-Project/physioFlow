@@ -875,6 +875,8 @@ Mostra os pontos amostrais coloridos por uma variável, **sobrepostos aos limite
 
 > Requer conexão de internet na primeira execução (baixa o shapefile do município via geobr). Depois fica em cache.
 
+> **Limitação em deploys cloud:** a biblioteca `geobr` foi removida do [`requirements.txt`](../requirements.txt) padrão porque puxa `lxml` como dependência transitiva, que não tem wheel pré-compilado para Python 3.14 (versão usada pelo Streamlit Community Cloud). Sem `geobr` instalado, o app continua funcionando — apenas esta aba exibe "indisponível" e ignora o overlay do município. Para reativar **localmente**, basta rodar `pip install geobr>=0.2.2` no seu venv.
+
 ## 10. Série temporal
 
 > Página **Série Temporal** no menu lateral.
