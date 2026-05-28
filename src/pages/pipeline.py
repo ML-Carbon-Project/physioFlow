@@ -67,8 +67,32 @@ def render():
     c1.metric(t("pipeline.metric.original"), len(df_raw))
     c2.metric(t("pipeline.metric.processed"), len(df_processed))
 
+    if len(df_raw) > 0:
+        overall_removed_pct = (1 - len(df_processed) / len(df_raw)) * 100
+        if overall_removed_pct >= 50:
+            st.warning(
+                t(
+                    "pipeline.warn_heavy_discard",
+                    pct=f"{overall_removed_pct:.1f}",
+                    before=len(df_raw),
+                    after=len(df_processed),
+                )
+            )
+
     st.markdown(f"#### {t('pipeline.report_title')}")
     if not report.empty:
+        heavy_steps = report[report["% removidas"] >= 50]
+        if not heavy_steps.empty:
+            for _, step in heavy_steps.iterrows():
+                st.warning(
+                    t(
+                        "pipeline.warn_step_discard",
+                        step=step["Etapa"],
+                        pct=f"{step['% removidas']:.1f}",
+                        before=int(step["Linhas antes"]),
+                        after=int(step["Linhas depois"]),
+                    )
+                )
         st.dataframe(report, use_container_width=True)
     else:
         st.info(t("pipeline.report_empty"))

@@ -110,9 +110,34 @@ def _render_stl_tab(df: pd.DataFrame, date_col: str, numeric_cols: list[str]) ->
     )
     interpolate = st.checkbox(t("timeseries.stl.interpolate"), value=True, key="ts_stl_interp")
 
-    series = _aggregate_daily(df, date_col, target, "median")
+    # Conta datas distintas com medição real ANTES da interpolação para evitar
+    # decompor uma série em que >> 70% dos pontos são fabricados pela interpolação.
+    raw_series = _aggregate_daily(df, date_col, target, "median")
+    n_observed = int(raw_series.dropna().shape[0])
+    min_observed_dates = 10
+    if n_observed < min_observed_dates:
+        st.warning(
+            t(
+                "timeseries.stl.too_few_dates",
+                n=n_observed,
+                need=min_observed_dates,
+            )
+        )
+        return
+
+    series = raw_series
     if interpolate:
         series = series.interpolate(method="time").dropna()
+        observed_share = n_observed / max(len(series), 1)
+        if observed_share < 0.3:
+            st.warning(
+                t(
+                    "timeseries.stl.heavy_interpolation",
+                    observed=n_observed,
+                    total=len(series),
+                    pct=f"{observed_share * 100:.1f}",
+                )
+            )
     else:
         series = series.dropna()
 

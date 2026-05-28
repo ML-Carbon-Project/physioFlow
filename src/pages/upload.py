@@ -17,6 +17,7 @@ _STATUS_LABEL_KEY = {
     "present": "upload.schema.status_present",
     "missing": "upload.schema.status_missing",
     "type_mismatch": "upload.schema.status_type_mismatch",
+    "empty": "upload.schema.status_empty",
 }
 
 
@@ -43,8 +44,12 @@ def _render_schema_report(df: pd.DataFrame) -> None:
             st.error(err)
     if result.required_missing:
         st.warning(t("upload.schema.required_missing", cols=", ".join(result.required_missing)))
+    if result.required_empty:
+        st.warning(t("upload.schema.required_empty", cols=", ".join(result.required_empty)))
     if result.recommended_missing:
         st.info(t("upload.schema.recommended_missing", cols=", ".join(result.recommended_missing)))
+    if result.recommended_empty:
+        st.info(t("upload.schema.recommended_empty", cols=", ".join(result.recommended_empty)))
     for w in result.warnings:
         st.caption(":warning: " + w)
 

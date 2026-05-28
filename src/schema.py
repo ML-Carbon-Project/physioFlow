@@ -278,6 +278,14 @@ class ValidationResult:
         return [r["label"] for r in self.rows if r["tier"] == "recommended" and r["status"] == "missing"]
 
     @property
+    def required_empty(self) -> list[str]:
+        return [r["label"] for r in self.rows if r["tier"] == "required" and r["status"] == "empty"]
+
+    @property
+    def recommended_empty(self) -> list[str]:
+        return [r["label"] for r in self.rows if r["tier"] == "recommended" and r["status"] == "empty"]
+
+    @property
     def has_blocking_issues(self) -> bool:
         return bool(self.required_missing) or bool(self.errors)
 
@@ -292,6 +300,8 @@ def _first_existing(df: pd.DataFrame, candidates: Iterable[str]) -> str | None:
 def _check_type(series: pd.Series, expected: str) -> tuple[bool, str]:
     non_null = series.dropna()
     if non_null.empty:
+        # Coluna existe mas está 100% nula: não é mismatch de tipo, mas precisa
+        # ser sinalizada para que features dependentes não falhem silenciosamente.
         return True, "empty"
 
     if expected == "numeric":
@@ -337,19 +347,29 @@ def validate_dataframe(df: pd.DataFrame) -> ValidationResult:
             continue
 
         ok, dtype = _check_type(df[found], spec.expected_type)
+        if dtype == "empty":
+            status = "empty"
+        elif ok:
+            status = "present"
+        else:
+            status = "type_mismatch"
         rows.append({
             "label": spec.label,
             "expected": " | ".join(spec.candidates),
             "found": found,
             "tier": spec.tier,
-            "status": "present" if ok else "type_mismatch",
+            "status": status,
             "type_ok": ok,
             "type_found": dtype,
             "feature": spec.feature,
         })
-        if not ok:
+        if status == "type_mismatch":
             warnings.append(
                 f"Coluna '{found}' encontrada para {spec.label} mas o tipo não é {spec.expected_type} ({dtype})."
+            )
+        elif status == "empty" and spec.tier in ("required", "recommended"):
+            warnings.append(
+                f"Coluna '{found}' (para {spec.label}) existe mas está 100% vazia — funcionalidades dependentes podem falhar."
             )
 
     lat = _first_existing(df, ("Latitude", "LATITUDE"))

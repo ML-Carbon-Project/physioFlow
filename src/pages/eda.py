@@ -406,20 +406,46 @@ def render():
                     key="eda_inf_targets",
                 )
                 alpha = st.slider(t("eda.inference.alpha"), 0.001, 0.10, 0.05, 0.005, key="eda_inf_alpha")
+                min_per_group = st.slider(
+                    t("eda.inference.min_per_group"),
+                    min_value=2,
+                    max_value=30,
+                    value=5,
+                    step=1,
+                    key="eda_inf_min_n",
+                    help=t("eda.inference.min_per_group_help"),
+                )
 
                 rows = []
                 for col in targets:
                     work = df[[group_col, col]].dropna()
                     if work.empty:
                         continue
-                    groups = [g[col].values for _, g in work.groupby(group_col) if len(g) >= 2]
+                    grouped = list(work.groupby(group_col))
+                    kept = [(name, g[col].values) for name, g in grouped if len(g) >= min_per_group]
+                    dropped = [name for name, g in grouped if len(g) < min_per_group]
+                    groups = [vals for _, vals in kept]
                     if len(groups) < 2:
-                        rows.append({"variable": col, "groups": len(groups), "H": np.nan, "p_value": np.nan, "significant": False})
+                        rows.append({
+                            "variable": col,
+                            "groups": len(groups),
+                            "H": np.nan,
+                            "p_value": np.nan,
+                            "significant": False,
+                            "dropped_levels": ", ".join(map(str, dropped)) if dropped else "",
+                        })
                         continue
                     try:
                         stat, p_value = kruskal(*groups)
                     except Exception:
-                        rows.append({"variable": col, "groups": len(groups), "H": np.nan, "p_value": np.nan, "significant": False})
+                        rows.append({
+                            "variable": col,
+                            "groups": len(groups),
+                            "H": np.nan,
+                            "p_value": np.nan,
+                            "significant": False,
+                            "dropped_levels": ", ".join(map(str, dropped)) if dropped else "",
+                        })
                         continue
                     rows.append({
                         "variable": col,
@@ -427,10 +453,13 @@ def render():
                         "H": round(float(stat), 4),
                         "p_value": float(p_value),
                         "significant": bool(p_value < alpha),
+                        "dropped_levels": ", ".join(map(str, dropped)) if dropped else "",
                     })
                 if rows:
                     result_df = pd.DataFrame(rows)
                     st.dataframe(result_df, use_container_width=True)
+                    if (result_df["dropped_levels"] != "").any():
+                        st.caption(":warning: " + t("eda.inference.dropped_caption", n=min_per_group))
                     st.download_button(
                         t("eda.inference.download"),
                         data=result_df.to_csv(index=False).encode("utf-8-sig"),
@@ -489,6 +518,7 @@ def render():
                 if norm_rows:
                     norm_df = pd.DataFrame(norm_rows)
                     st.dataframe(norm_df, use_container_width=True)
+                    st.caption(":bulb: " + t("eda.normality.large_n_hint"))
                     st.download_button(
                         t("eda.normality.download"),
                         data=norm_df.to_csv(index=False).encode("utf-8-sig"),
@@ -496,9 +526,43 @@ def render():
                         mime="text/csv",
                     )
 
+                    # Q-Q plot por variável: complementa o p-value com diagnóstico visual,
+                    # essencial quando n > algumas centenas e qualquer desvio leve gera p ≈ 0.
+                    try:
+                        from scipy.stats import probplot
+                    except ImportError:
+                        pass
+                    else:
+                        st.markdown(f"###### {t('eda.normality.qq_title')}")
+                        qq_cols = [r["variable"] for r in norm_rows]
+                        n_qq = len(qq_cols)
+                        cols_per_row = min(3, n_qq) if n_qq > 0 else 1
+                        n_rows_qq = (n_qq + cols_per_row - 1) // cols_per_row
+                        fig_qq, axes_qq = plt.subplots(
+                            n_rows_qq,
+                            cols_per_row,
+                            figsize=(4.5 * cols_per_row, 3.6 * n_rows_qq),
+                            squeeze=False,
+                        )
+                        for idx, col in enumerate(qq_cols):
+                            r, c = divmod(idx, cols_per_row)
+                            ax = axes_qq[r][c]
+                            sample = df[col].dropna().to_numpy()
+                            if len(sample) >= 8:
+                                probplot(sample, dist="norm", plot=ax)
+                                ax.set_title(col, fontsize=10)
+                                ax.grid(True, alpha=0.3)
+                        for empty_idx in range(n_qq, n_rows_qq * cols_per_row):
+                            r, c = divmod(empty_idx, cols_per_row)
+                            axes_qq[r][c].axis("off")
+                        fig_qq.tight_layout()
+                        st.pyplot(fig_qq)
+                        plt.close(fig_qq)
+
             st.markdown("---")
             st.markdown(f"##### {t('eda.vif.title')}")
             st.caption(t("eda.vif.caption"))
+            st.caption(":information_source: " + t("eda.vif.derived_note"))
             try:
                 from statsmodels.stats.outliers_influence import variance_inflation_factor
                 from statsmodels.tools.tools import add_constant
@@ -625,6 +689,7 @@ def render():
     with tab11:
         st.markdown(f"#### {t('eda.outliers.title')}")
         st.caption(t("eda.outliers.caption"))
+        st.caption(":information_source: " + t("eda.outliers.assumptions"))
 
         default_out = [c for c in ("A", "E", "gs", "Chl_a_media", "IAF_media") if c in numeric_cols]
         out_targets = st.multiselect(

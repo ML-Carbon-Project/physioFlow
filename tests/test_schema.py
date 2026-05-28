@@ -101,3 +101,41 @@ class TestValidateDataframeEmpty:
         assert all(r["status"] == "missing" for r in result.rows)
         assert result.required_missing
         assert len(result.rows) == len(SCHEMA_SPECS)
+
+
+class TestValidateDataframeAllNullColumn:
+    def test_required_column_all_null_is_flagged_as_empty(self):
+        df = _full_dataset()
+        df["Uso atual"] = np.nan
+        result = validate_dataframe(df)
+        uso_row = next(r for r in result.rows if r["label"] == "Uso atual")
+        assert uso_row["status"] == "empty"
+        assert "Uso atual" in result.required_empty
+        assert "Uso atual" not in result.required_missing
+        assert any("100% vazia" in w for w in result.warnings)
+
+    def test_recommended_column_all_null_is_flagged_as_empty(self):
+        df = _full_dataset()
+        df["A"] = np.nan
+        result = validate_dataframe(df)
+        a_row = next(r for r in result.rows if r["label"] == "A (Taxa Fotossintética)")
+        assert a_row["status"] == "empty"
+        assert "A (Taxa Fotossintética)" in result.recommended_empty
+
+    def test_optional_column_all_null_emits_no_warning(self):
+        df = _full_dataset()
+        df["Latitude"] = np.nan
+        result = validate_dataframe(df)
+        lat_row = next(r for r in result.rows if r["label"] == "Latitude")
+        # Status ainda marcado como "empty" para inspeção via tabela,
+        # mas sem warning porque é coluna opcional.
+        assert lat_row["status"] == "empty"
+        assert not any("Latitude" in w for w in result.warnings)
+
+    def test_empty_required_column_does_not_block(self):
+        # `has_blocking_issues` depende só de required_missing/errors, não de empty.
+        # O bloqueio fica a cargo do warning visual.
+        df = _full_dataset()
+        df["Uso atual"] = np.nan
+        result = validate_dataframe(df)
+        assert not result.has_blocking_issues
