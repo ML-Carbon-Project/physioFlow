@@ -1,0 +1,49 @@
+---
+# Metadados pandoc para a geração do manual em PDF.
+# Aplicados via `pandoc --metadata-file=docs/manual_metadata.yaml`.
+
+title: "Manual de Operação"
+subtitle: "Fisiologia Vegetal — Projeto Goiás Verde"
+author:
+  - "Projeto Goiás Verde — IF Goiano (Campus Rio Verde) & CEAGRE"
+date: "\\today"
+lang: pt-BR
+
+# Engine LaTeX. XeLaTeX lida bem com Unicode (γ, µ, ², ², ⟷, …).
+documentclass: report
+papersize: a4
+geometry:
+  - margin=2.5cm
+  - top=2.5cm
+  - bottom=2.8cm
+
+# Tipografia.
+mainfont: "Times New Roman"
+monofont: "Menlo"
+fontsize: 11pt
+linestretch: 1.15
+
+# Sumário automático.
+toc: true
+toc-depth: 3
+numbersections: true
+
+# Cores e estilo do código (highlight do pandoc).
+highlight-style: tango
+colorlinks: true
+linkcolor: "Maroon"
+urlcolor: "MidnightBlue"
+toccolor: "Black"
+
+# Cabeçalho/rodapé via fancyhdr (carregado em header-includes abaixo).
+header-includes: |
+  \usepackage{fancyhdr}
+  \pagestyle{fancy}
+  \fancyhf{}
+  \fancyhead[L]{Manual de Operação — Goiás Verde}
+  \fancyhead[R]{\thepage}
+  \fancyfoot[C]{\textit{Documento gerado automaticamente — não editar à mão}}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \usepackage{xurl}
+  \usepackage{booktabs}
+  \usepackage{longtable}

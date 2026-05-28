@@ -1,0 +1,83 @@
+name: Build manual PDF
+
+# Dispara em três situações:
+#   1. Manualmente, via "Run workflow" na aba Actions do GitHub.
+#   2. Em tags de versão (v1.0, v1.1, ...) — anexa o PDF como artifact da release.
+#   3. Quando o conteúdo do manual ou seus assets muda na branch principal —
+#      útil para validar que o build não quebra.
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: "Idioma do manual (pt | en | es)"
+        required: true
+        default: "pt"
+        type: choice
+        options: ["pt", "en", "es"]
+  push:
+    tags:
+      - "v*"
+    branches: [main, master]
+    paths:
+      - "docs/manual.*.md"
+      - "docs/manual_metadata.yaml"
+      - "docs/img/manual/**"
+      - "scripts/build_manual_pdf.sh"
+      - ".github/workflows/build-manual.yml"
+
+jobs:
+  build:
+    name: pandoc → PDF
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pandoc and TeX Live (XeLaTeX)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pandoc \
+            texlive-xetex \
+            texlive-fonts-recommended \
+            texlive-latex-recommended \
+            texlive-fonts-extra \
+            fonts-liberation
+          pandoc --version | head -1
+          xelatex --version | head -1
+
+      - name: Pick language
+        id: lang
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "code=${{ inputs.lang }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=pt" >> "$GITHUB_OUTPUT"
+          fi
+
+      # XeLaTeX precisa de fontes; o metadata pede "Times New Roman" e "Menlo"
+      # — substituímos por "Liberation Serif" e "DejaVu Sans Mono" no CI Linux,
+      # que já vêm com texlive-fonts-recommended.
+      - name: Patch fonts for Linux CI
+        run: |
+          sed -i 's/^mainfont:.*/mainfont: "Liberation Serif"/' docs/manual_metadata.yaml
+          sed -i 's/^monofont:.*/monofont: "DejaVu Sans Mono"/' docs/manual_metadata.yaml
+
+      - name: Build PDF
+        run: |
+          ./scripts/build_manual_pdf.sh --lang "${{ steps.lang.outputs.code }}"
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-${{ steps.lang.outputs.code }}-pdf
+          path: docs/manual.${{ steps.lang.outputs.code }}.pdf
+          if-no-files-found: error
+          retention-days: 30
+
+      # Anexa o PDF como release asset apenas em pushes de tag.
+      - name: Attach PDF to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: docs/manual.${{ steps.lang.outputs.code }}.pdf

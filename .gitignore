@@ -12,3 +12,6 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Artefatos gerados pelo build do manual (PDFs locais; o CI publica como artifact)
+docs/manual.*.pdf
