@@ -49,6 +49,8 @@ Em uma frase: **valida, limpa, explora e modela** planilhas de campo de fisiolog
 
 ## 2. Instalação e primeira execução
 
+> **Antes de instalar:** existe uma versão hospedada em [physioflow.streamlit.app](https://physioflow.streamlit.app/). Se você só quer testar funcionalidades ou compartilhar com colaboradores sem instalar nada, peça as credenciais ao mantenedor do projeto e use direto pelo navegador. As instruções abaixo são para quem precisa rodar **localmente** (desenvolvimento, dados sensíveis ou indisponibilidade do deploy).
+
 ### 2.1 Pré-requisitos
 
 | Item | Mínimo | Recomendado |

@@ -1,6 +1,12 @@
 # PhysioFlow — Crop Physiology Data Analysis Platform
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://physioflow.streamlit.app/)
+
 > An open-source interactive web platform for exploratory data analysis, spatial modeling, and machine learning of crop ecophysiological parameters (soybean and sugarcane). Built within the **Goiás Verde Project**.
+
+> ### 🌐 [**Live demo →**](https://physioflow.streamlit.app/)
+>
+> Deployed on Streamlit Community Cloud. Login-protected via Supabase — request credentials from the maintainer.
 
 [English](./README.md) | [Português](./README.pt.md) | [Español](./README.es.md)
 

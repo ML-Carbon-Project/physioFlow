@@ -14,7 +14,7 @@ authors:
     given-names: "Leandro Rodrigues da Silva"
     email: "leandrorodrigues.s@gmail.com"
 repository-code: "https://github.com/danielhilario-if/physioflow"
-url: "https://github.com/danielhilario-if/physioflow"
+url: "https://physioflow.streamlit.app/"
 abstract: >-
   PhysioFlow is an open-source, interactive web application for processing,
   exploring, modelling and visualising ecophysiological field datasets from

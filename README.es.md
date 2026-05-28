@@ -1,6 +1,12 @@
 # PhysioFlow — Plataforma de Análisis de Fisiología Vegetal
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://physioflow.streamlit.app/)
+
 > Una plataforma web open-source interactiva para el análisis exploratorio de datos, modelado espacial y aprendizaje automático de parámetros ecofisiológicos de cultivos agrícolas (soja y caña de azúcar). Desarrollada en el marco del **Proyecto Goiás Verde**.
+
+> ### 🌐 [**Demostración en vivo →**](https://physioflow.streamlit.app/)
+>
+> Aplicación publicada en Streamlit Community Cloud. Acceso protegido por login Supabase — solicite credenciales al mantenedor.
 
 [English](./README.md) | [Português](./README.pt.md) | [Español](./README.es.md)
 
