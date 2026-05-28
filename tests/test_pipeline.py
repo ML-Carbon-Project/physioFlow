@@ -108,6 +108,36 @@ class TestCleanFisiologiaData:
         assert row2["Chl_a_media"] == 28.0  # valor de Chl a.1 (Replica 2)
         assert row2["IAF_media"] == 2.8
 
+    def test_clean_pipeline_mediana(self):
+        df_clean, logs = clean_fisiologia_data(self.df_raw, rep_method="mediana")
+        assert len(df_clean) == 1
+        row = df_clean.iloc[0]
+        # Chl a: median(30.0, 28.0) = 29.0  → idêntico à média com n=2
+        assert row["Chl_a_media"] == pytest.approx(29.0)
+        # Chl b: median(10.0, 8.0) = 9.0  → idêntico à média com n=2
+        assert row["Chl_b_media"] == pytest.approx(9.0)
+        # IAF: median(3.0, 2.8, 3.2) = 3.0  → coincide com a média neste caso
+        assert row["IAF_media"] == pytest.approx(3.0)
+        # Verifica que a etapa correta foi registrada
+        assert any("mediana" in step.step.lower() for step in logs)
+
+    def test_mediana_robustness_with_outlier_iaf(self):
+        # Cenário em que mediana e média divergem: outlier em IAF.2.
+        df = pd.DataFrame({
+            "Cultura": ["Soja"],
+            "Uso atual": ["Perene"],
+            "Época": ["Verão"],
+            "A": [25.0],
+            "IAF": [3.0],
+            "IAF.1": [3.1],
+            "IAF.2": [99.0],  # leitura espúria (ex.: ceptômetro lendo o céu)
+        })
+        media_clean, _ = clean_fisiologia_data(df, rep_method="media")
+        mediana_clean, _ = clean_fisiologia_data(df, rep_method="mediana")
+        # média puxa o resultado pelo outlier; mediana descarta-o
+        assert media_clean.iloc[0]["IAF_media"] == pytest.approx((3.0 + 3.1 + 99.0) / 3)
+        assert mediana_clean.iloc[0]["IAF_media"] == pytest.approx(3.1)
+
 
 class TestBuildStepReport:
     def test_percent_removed(self):

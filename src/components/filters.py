@@ -29,13 +29,14 @@ def render_page_filters(df: pd.DataFrame) -> pd.DataFrame:
         with c1:
             # 1. Tratamento de Réplicas
             method_options = {
-                "media": "Média das Réplicas",
-                "desdobrar": "Desdobrar em Linhas",
-                "replica_1": "Réplica 1 Apenas",
-                "replica_2": "Réplica 2 Apenas",
-                "replica_3": "Réplica 3 Apenas (IAF)"
+                "media": t("sidebar.rep.media", default="Média das Réplicas"),
+                "mediana": t("sidebar.rep.mediana", default="Mediana das Réplicas"),
+                "desdobrar": t("sidebar.rep.desdobrar", default="Desdobrar em Linhas"),
+                "replica_1": t("sidebar.rep.replica_1", default="Réplica 1 Apenas"),
+                "replica_2": t("sidebar.rep.replica_2", default="Réplica 2 Apenas"),
+                "replica_3": t("sidebar.rep.replica_3", default="Réplica 3 Apenas (IAF)"),
             }
-            
+
             current_method = st.session_state.get("rep_method", "media")
             method_keys = list(method_options.keys())
             method_idx = method_keys.index(current_method) if current_method in method_keys else 0
@@ -47,6 +48,8 @@ def render_page_filters(df: pd.DataFrame) -> pd.DataFrame:
                 format_func=lambda x: method_options[x],
                 key="filter_rep_method"
             )
+            if selected_method == "mediana":
+                st.caption(":information_source: " + t("sidebar.rep.mediana_note"))
 
             # Se o método mudou, reprocessa o pipeline
             if selected_method != current_method:

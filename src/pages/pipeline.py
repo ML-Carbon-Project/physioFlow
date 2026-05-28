@@ -32,20 +32,25 @@ def render():
 
     # Exibe a opção de tratamento de réplicas também na página para conveniência
     method_options = {
-        "media": "Média das Réplicas (Agrupado)",
-        "desdobrar": "Desdobrar em Linhas (Expandido)",
-        "replica_1": "Réplica 1 Apenas",
-        "replica_2": "Réplica 2 Apenas",
-        "replica_3": "Réplica 3 Apenas (IAF)"
+        "media": t("sidebar.rep.media", default="Média das Réplicas") + " (" + t("pipeline.rep_grouped", default="Agrupado") + ")",
+        "mediana": t("sidebar.rep.mediana", default="Mediana das Réplicas") + " (" + t("pipeline.rep_grouped", default="Agrupado") + ")",
+        "desdobrar": t("sidebar.rep.desdobrar", default="Desdobrar em Linhas") + " (" + t("pipeline.rep_expanded", default="Expandido") + ")",
+        "replica_1": t("sidebar.rep.replica_1", default="Réplica 1 Apenas"),
+        "replica_2": t("sidebar.rep.replica_2", default="Réplica 2 Apenas"),
+        "replica_3": t("sidebar.rep.replica_3", default="Réplica 3 Apenas (IAF)"),
     }
-    
+
+    method_keys = list(method_options.keys())
+    method_idx = method_keys.index(rep_method) if rep_method in method_keys else 0
     selected_method = st.selectbox(
         t("pipeline.rep_method_label", default="Alterar Tratamento de Réplicas:"),
-        options=list(method_options.keys()),
-        index=list(method_options.keys()).index(rep_method),
+        options=method_keys,
+        index=method_idx,
         format_func=lambda x: method_options[x],
         key="pipeline_rep_method"
     )
+    if selected_method == "mediana":
+        st.caption(":information_source: " + t("sidebar.rep.mediana_note"))
 
     # Se mudar na página, atualiza e re-executa
     if selected_method != rep_method:

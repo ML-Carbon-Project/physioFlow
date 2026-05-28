@@ -64,7 +64,9 @@ def clean_fisiologia_data(
     """Aplica o pipeline completo de limpeza e tratamento de réplicas de Fisiologia.
 
     Modos de tratamento de réplicas (rep_method):
-    - "media": Calcula a média entre as repetições disponíveis.
+    - "media": Calcula a média aritmética entre as repetições disponíveis.
+    - "mediana": Calcula a mediana entre as repetições (robusta a outliers; com
+      n=2 réplicas é matematicamente idêntica à média).
     - "desdobrar": Desdobra as réplicas 1, 2 e 3 em linhas independentes.
     - "replica_1": Utiliza apenas as colunas da réplica 1.
     - "replica_2": Utiliza apenas as colunas da réplica 2.
@@ -146,6 +148,29 @@ def clean_fisiologia_data(
             out["IAF_media"] = np.nan
 
         step_desc = "Consolidação de réplicas por média aritmética"
+
+    elif rep_method == "mediana":
+        # Mediana das réplicas: mais robusta a outliers que a média.
+        # Note: com n=2 (Chl a/b), mediana == média; o ganho aparece em IAF (n=3).
+        # Os nomes das colunas de saída ficam idênticos ("Chl_a_media", "IAF_media",
+        # etc.) para manter compatibilidade com filtros, EDA e modelagem; apenas o
+        # cálculo subjacente muda.
+        if c_chl_a or c_chl_a_1:
+            out["Chl_a_media"] = out[[c for c in [c_chl_a, c_chl_a_1] if c]].median(axis=1)
+        else:
+            out["Chl_a_media"] = np.nan
+
+        if c_chl_b or c_chl_b_1:
+            out["Chl_b_media"] = out[[c for c in [c_chl_b, c_chl_b_1] if c]].median(axis=1)
+        else:
+            out["Chl_b_media"] = np.nan
+
+        if c_iaf or c_iaf_1 or c_iaf_2:
+            out["IAF_media"] = out[[c for c in [c_iaf, c_iaf_1, c_iaf_2] if c]].median(axis=1)
+        else:
+            out["IAF_media"] = np.nan
+
+        step_desc = "Consolidação de réplicas por mediana"
 
     elif rep_method == "desdobrar":
         # Cria três dataframes independentes representando cada réplica
