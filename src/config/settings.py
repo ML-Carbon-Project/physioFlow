@@ -74,6 +74,8 @@ NAVIGATION_ITEMS = [
     NavigationItem(key="regression", label_key="nav.regression", icon="graph-up-arrow"),
     NavigationItem(key="modeling", label_key="nav.modeling", icon="cpu"),
     NavigationItem(key="spatial", label_key="nav.spatial", icon="geo-alt"),
+    NavigationItem(key="timeseries", label_key="nav.timeseries", icon="clock-history"),
+    NavigationItem(key="comparative", label_key="nav.comparative", icon="bar-chart-steps"),
 ]
 
 PIPELINE_DROP_CANDIDATES = [

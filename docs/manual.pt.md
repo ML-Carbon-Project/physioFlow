@@ -877,30 +877,341 @@ Mostra os pontos amostrais coloridos por uma variável, **sobrepostos aos limite
 
 ## 10. Série temporal
 
-*[A ser preenchido na próxima iteração.]*
+> Página **Série Temporal** no menu lateral.
+
+Esta página é específica para análise **univariada longitudinal** — agrega uma variável por dia e, opcionalmente, decompõe a série em componentes de tendência, sazonalidade e resíduo. **Diferente da aba Temporal do EDA** (§6.8), aqui o foco é a **estrutura temporal formal** da série, não apenas a visualização exploratória.
+
+### 10.1 Detecção da coluna de data
+
+O app procura automaticamente uma coluna de data candidata: `Data da coleta`, `Data`, `Date`, `DATE_TIME initial_value` e similares (lista canônica em [`src/pipeline.py`](../src/pipeline.py) na função `find_date_column`). Desde a v1.1, a detecção também coage colunas com **dtype `object` contendo mistura de `datetime.datetime` + `str` + `NaN`** — caso típico do Excel exportado em datasets de campo.
+
+Se nenhuma coluna for detectada, a página exibe **"Coluna de data não encontrada"** e fica vazia. Verifique no Excel se a coluna de data está nomeada conforme uma das variantes aceitas e se as células estão como **datas reais** (não como texto).
+
+### 10.2 Agregação diária
+
+> Aba **Agregação diária**.
+
+Configurações:
+
+* **Variáveis para plotar** (multiselect) — uma ou mais.
+* **Método de agregação** (radio) — média ou mediana por dia.
+
+Cada variável vira uma linha colorida; o eixo X mostra as datas com formatação automática. Para o dataset Rio Verde, com apenas 3 datas de coleta, o gráfico aparece como 3 pontos ligados — útil para visualizar a evolução temporal, mas pouco interpretável estatisticamente.
+
+### 10.3 Decomposição STL
+
+> Aba **Decomposição STL**.
+
+A decomposição STL (*Seasonal-Trend decomposition using LOESS*, Cleveland et al., 1990) separa uma série temporal em três componentes:
+
+* **Tendência** — variação lenta de longo prazo.
+* **Sazonalidade** — padrão cíclico que se repete com período fixo.
+* **Resíduo** — ruído após remover tendência e sazonalidade.
+
+**Configurações:**
+
+* **Variável-alvo** (default: `FCO2_DRY` se existir, senão a primeira numérica).
+* **Período sazonal (dias)** — slider 2 a 60. Padrão 7 (sazonalidade semanal).
+* **Interpolar lacunas temporais** (checkbox) — preenche dias sem medição por interpolação linear no tempo.
+
+#### Guard-rails da STL
+
+Para evitar interpretações enganosas, o app impõe **dois bloqueios**:
+
+![Aviso de poucas datas para STL](img/manual/24_temporal_stl_bloqueado.png)
+
+| Condição | O que acontece |
+|---|---|
+| Menos de **10 datas com medição real** | A STL é bloqueada com aviso: *"Apenas N datas com medição real (mínimo 10). A decomposição STL exige pontos suficientes — campanhas pontuais não atendem ao requisito."* |
+| Interpolação cobre **mais de 70 %** da série | A STL roda, mas com aviso destacado: as métricas de força de tendência/sazonalidade refletem em grande parte a própria interpolação, não o sinal observado. |
+
+> **No dataset Rio Verde:** apenas 3 datas distintas (Dez/2025, Jan/2026, Fev/2026) → o app bloqueia a STL com mensagem clara. Este é o comportamento correto; a decomposição precisaria de campanhas mensais (~12 datas) ou semanais (~10+) para ser estatisticamente honesta.
+
+#### Saída quando a STL roda
+
+Quando há dados suficientes, a página produz quatro gráficos empilhados (Observado, Tendência, Sazonalidade, Resíduo) e três métricas:
+
+* **Força de tendência** — `1 − Var(resíduo) / Var(observado − sazonal)`. Próximo de 1 = tendência muito clara.
+* **Força de sazonalidade** — `1 − Var(resíduo) / Var(observado − tendência)`. Próximo de 1 = sazonalidade muito clara.
+* **n** — número de pontos da série após agregação/interpolação.
+
+---
 
 ## 11. Comparação por grupos
 
-*[A ser preenchido na próxima iteração.]*
+> Página **Comparação por grupo** no menu lateral.
+
+Esta página implementa o caso de uso clássico **"o Grupo A difere do Grupo B?"** com ferramentas estatísticas robustas. Diferentemente da aba Boxplot do EDA (§6.4), aqui você tem:
+
+* **Definição flexível dos grupos** — escolha manual de quais valores entram em A e B, ou pattern matching por substring.
+* **Teste estatístico formal** — Mann-Whitney U *two-sided* para cada variável.
+* **Regressão log-linear por grupo** — ajusta a relação log(Y) ~ X separadamente em A e B.
+* **Padrão horário** — agrega Y por hora do dia para cada grupo (útil para fluxos diurnos vs. noturnos).
+
+### 11.1 Configuração dos grupos
+
+![Configuração de Comparativa: Cana vs. Soja](img/manual/25_comparativa_setup.png)
+
+**Coluna categórica** — selectbox no topo. Define qual coluna será particionada em dois grupos. Padrão: `Cultura`.
+
+**Duas vias de definir A e B:**
+
+#### Modo manual (padrão)
+
+Dois multiselects, lado a lado:
+
+* **Valores no Grupo A** + rótulo customizável (default: primeiro valor da coluna).
+* **Valores no Grupo B** + rótulo customizável (default: o segundo valor).
+
+Você pode atribuir múltiplos valores a um mesmo grupo (ex.: agrupar "R1", "R2", "R3" num só "Estágio reprodutivo precoce").
+
+> **Validação automática:** se algum valor aparecer nos dois lados, o app exibe `st.error` e impede o avanço.
+
+#### Modo pattern matching
+
+Marque o checkbox **Classificar automaticamente por padrão de texto**. Aparece um campo de texto onde você digita um padrão (case-insensitive):
+
+* Valores que **contêm** o padrão → Grupo A (Match).
+* Valores que **não contêm** → Grupo B (Other).
+
+Útil quando a coluna tem muitos níveis (ex.: 14 estágios fenológicos) e você quer rapidamente separar "tudo que contém 'maturação'" do resto. O app mostra a lista de cada grupo em caption para você conferir antes de analisar.
+
+#### Métricas de N por grupo
+
+Após a configuração, duas métricas grandes mostram quantas linhas caíram em cada grupo:
+
+> **No dataset Rio Verde (modo Desdobrar):** Cana-de-açúcar = 54, Soja = 104. Em modo Média seria 27 vs. 54 — siga atento ao número porque ele governa o poder estatístico dos testes que vêm em seguida.
+
+### 11.2 Resumo & teste — Mann-Whitney U
+
+> Primeira aba dentro da Comparativa.
+
+Para cada variável numérica selecionada, devolve dois blocos:
+
+**Tabela de resumo descritivo** (`group`, `variable`, `n`, `mean`, `se`, `median`):
+
+**Tabela de teste de Mann-Whitney U:**
+
+![Tabela Mann-Whitney na Comparativa](img/manual/26_comparativa_mannwhitney.png)
+
+| Coluna | Significado |
+|---|---|
+| `variable` | A variável testada. |
+| `g1`, `g2` | Rótulos dos grupos. |
+| `n_g1`, `n_g2` | Tamanho de cada grupo. |
+| `U` | Estatística de Mann-Whitney. |
+| `p_value` | Probabilidade sob H₀ (mesma distribuição). |
+| `significant_5%` | `True` se p < 0,05. |
+
+#### Quando o Mann-Whitney é apropriado
+
+| Condição | Implicação |
+|---|---|
+| Os dois grupos têm forma de distribuição **similar** | Mann-Whitney compara medianas (interpretação direta). |
+| Distribuições têm formas **diferentes** | Mann-Whitney compara distribuições globais (rejeição não significa "mediana diferente", mas "distribuição diferente"). |
+| Há **pseudoreplicação** (réplicas no mesmo sítio) | n inflado → p artificialmente pequeno. Considere agregar por sítio (modo de réplica Média ou Mediana) antes de comparar. |
+
+> **No dataset Rio Verde:** rodando Cana vs. Soja em Latitude e Longitude, os p-values são da ordem de 10⁻⁸ — o que **não** significa que cana e soja têm "latitudes diferentes" no sentido fisiológico. Significa que **as duas fazendas estão em locais geograficamente distintos** e cada uma tem só uma cultura (lembre o confundimento Fazenda ⟷ Cultura). Para um achado biologicamente significativo, teste variáveis fisiológicas (`A`, `gs`, `E`, etc.) e leia em conjunto com a aba de Confundimento (§6.2).
+
+### 11.3 Log-linear por grupo
+
+> Segunda aba dentro da Comparativa.
+
+Ajusta uma regressão linear simples em escala **log(Y)** versus X, **separadamente para cada grupo**. Útil quando a relação Y-X é exponencial ou multiplicativa (saturação, decaimento).
+
+**Configurações:**
+
+* **Variável Y** (numérica) — só valores **estritamente positivos** entram (log(0) e log negativo são descartados silenciosamente).
+* **Variável X** (numérica).
+
+Saída: scatter colorido por grupo + retas ajustadas + tabela com `intercept`, `slope`, `R²`, `p_value`, `se_slope` por grupo.
+
+> **Cuidado quando Y tem valores ≤ 0:** o app descarta essas linhas antes do log. Se um grupo tem muitos negativos (caso de FCO2_DRY em uptake, FCH4_DRY em sumidouro), você compara N drasticamente diferentes entre os grupos, **comprometendo a comparabilidade**. Verifique sempre o `n` reportado em cada grupo no gráfico.
+
+### 11.4 Padrão horário
+
+> Terceira aba dentro da Comparativa.
+
+Para datasets com coluna de **data/hora** (não apenas data), extrai a hora de cada medição e calcula a média/mediana de Y por hora-do-dia, separadamente para cada grupo.
+
+Saída: dois gráficos lado a lado:
+
+* **Esquerda:** média (ou mediana) por hora, linha por grupo.
+* **Direita:** soma cumulativa por hora — útil para visualizar fluxo acumulado ao longo do dia (ex.: emissão de CO₂ diurna).
+
+Tabela exportável como CSV.
+
+> **No dataset Rio Verde:** a coluna `Data da coleta` tem apenas a parte de data (sem hora), então todas as medições caem na hora `00:00`. A aba fica visualmente vazia, exceto pela barra única em zero. Em datasets de fluxo de solo com timestamp completo (IRGA medindo a cada 1-2 horas) a aba é muito mais útil.
+
+---
 
 ## 12. Glossário estatístico
 
-*[A ser preenchido na próxima iteração.]*
+Definições curtas dos termos técnicos usados no manual. Para aprofundamento, ver as Referências (§14).
+
+* **Anderson-Darling** — teste de normalidade sensível a desvios nas caudas. Devolve estatística A² e valor crítico a 5 %; rejeita se A² > crítico.
+* **Cramér's V** — medida de associação entre duas variáveis categóricas, no intervalo [0, 1]. V=1 indica equivalência perfeita; usado no app para detectar confundimento.
+* **D'Agostino-Pearson (K²)** — teste de normalidade que combina assimetria e curtose. Robusto a empates; recomendado para n moderado.
+* **Elliptic Envelope** — método de detecção de outliers que assume **normalidade multivariada**. Pouco confiável em dados bimodais ou fortemente assimétricos.
+* **Getis-Ord Gi*** — estatística local que classifica cada ponto como hotspot (cluster de altos), coldspot (cluster de baixos) ou não significativo, com base em sua vizinhança via banda de distância.
+* **GroupKFold** — variante de validação cruzada que mantém todas as linhas de um mesmo "grupo" (sítio, fazenda, ponto) no mesmo fold. Evita inflar o R² quando há pseudoreplicação.
+* **IDW (Inverse Distance Weighting)** — interpolação determinística que estima cada ponto do grid como média ponderada dos pontos amostrados, com peso ∝ 1/distância^power.
+* **Isolation Forest** — algoritmo de detecção de outliers baseado em árvores aleatórias. Não-paramétrico, escala bem para muitas dimensões.
+* **Kruskal-Wallis (KW)** — teste não-paramétrico que compara distribuições entre 2 ou mais grupos. Equivale ao Mann-Whitney quando há exatamente 2 grupos.
+* **Kriging ordinária** — interpolação **estatística** baseada na estrutura espacial dos dados, ajustada via variograma. Devolve estimativas + incerteza.
+* **LISA (Local Indicators of Spatial Association)** — versão local do Moran's I; classifica cada ponto em HH, HL, LH, LL ou NS conforme seu valor e o da sua vizinhança.
+* **LOF (Local Outlier Factor)** — método de outliers baseado em densidade local. Marca pontos cuja vizinhança é menos densa que a dos seus vizinhos.
+* **Mann-Whitney U** — teste não-paramétrico para comparar duas amostras independentes. Equivalente ao Kruskal-Wallis com k=2.
+* **Moran's I** — índice de autocorrelação espacial global, no intervalo [-1, +1]. Positivo → valores similares se agrupam no espaço.
+* **Pearson (r)** — coeficiente de correlação linear. Sensível a outliers; pressupõe relação linear.
+* **Pseudoreplicação** — quando réplicas (medições) do mesmo sítio são tratadas como observações independentes. Infla o n efetivo e gera p-values otimistas.
+* **Q-Q plot** — gráfico que compara os quantis amostrais aos teóricos da normal. Pontos alinhados na diagonal indicam normalidade visual.
+* **Shapiro-Wilk (W)** — teste de normalidade. O mais sensível para n < 5000; padrão na literatura.
+* **Spearman (ρ)** — coeficiente de correlação por postos. Robusto a outliers e capta relações monotônicas não-lineares.
+* **STL (Seasonal-Trend decomposition using LOESS)** — decompõe uma série temporal em tendência, sazonalidade e resíduo via regressão local robusta.
+* **UTM (Universal Transverse Mercator)** — sistema de projeção cartográfica em metros. Rio Verde, GO fica no fuso 22 Sul (EPSG 32722).
+* **Variograma** — função que descreve a semivariância entre pares de pontos em função da distância. Parâmetros: nugget (variância em h=0), sill (assíntota) e range (distância em que estabiliza).
+* **VIF (Variance Inflation Factor)** — mede multicolinearidade. VIF=1/(1-R²) onde R² vem da regressão da variável contra todas as outras. VIF ≥ 10 indica colinearidade severa.
+* **Z-score** — número de desvios-padrão acima/abaixo da média. Critério |z|>3 marca outliers; **não-robusto** (o próprio outlier infla o desvio-padrão).
+
+---
 
 ## 13. Solução de problemas (FAQ)
 
-*[A ser preenchido na próxima iteração.]*
+### "Aparece `sidebar.rep.media` (ou outra chave crua) em vez do texto traduzido"
+
+O Streamlit cacheia o módulo de traduções no primeiro import. Se você atualizou o app após o servidor já estar rodando, as novas chaves não aparecem até reiniciar. **Solução:** `Ctrl+C` no terminal e `python -m streamlit run app.py` novamente.
+
+### "O pipeline esvaziou meu dataset (ou removeu quase tudo)"
+
+Vá em **Pipeline e Processamento** e leia o aviso amarelo destacado. A causa quase sempre é a etapa 2 — uma das colunas obrigatórias (`Cultura`, `Uso atual` ou `Época`) está vazia em muitas linhas. Volte ao Excel, identifique qual coluna está faltando, e refaça o upload com a planilha corrigida.
+
+### "A página Série Temporal diz 'Coluna de data não encontrada'"
+
+Verifique no Excel se sua coluna se chama `Data da coleta`, `Data`, `Date`, `DATE_TIME initial_value` ou alguma variante reconhecida (lista completa em [`docs/data_dictionary.md`](data_dictionary.md)). Se o nome estiver certo, abra a coluna e verifique se as células estão como **datas reais** (Excel mostra `2025-12-19` à direita) e não como **texto** ("2025-12-19" à esquerda). Salve o arquivo e recarregue.
+
+### "GroupKFold reduziu meus folds automaticamente"
+
+Significa que o número de grupos únicos na coluna escolhida é menor que o número de folds que você configurou. Por exemplo: você pediu 5 folds, mas só há 4 fazendas — o app ajusta para 4 folds. Se quiser manter os 5 folds, escolha uma coluna de agrupamento com mais níveis (ex.: `Fazenda + Ponto` em vez de só `Fazenda`).
+
+### "Algumas variáveis aparecem com VIF infinito ou astronômico"
+
+Isso é esperado para **variáveis derivadas matematicamente** de outras: `Ci/Ca` é Ci dividido por Ca (com Ca quase constante, vira reescala de Ci); `EUA = A/E`; `A/Ci` é uma razão; `ETR` é função de YII. VIF alto entre essas indica multicolinearidade **por construção**, não por problema dos dados. Inclua só uma representante do par derivado nos modelos.
+
+### "Moran's I deu 0,9 — meus dados são extremamente agregados espacialmente?"
+
+Antes de comemorar a descoberta de um cluster, confira a aba **Qualidade do EDA → Confundimento entre categorias**. Se `Fazenda ⟷ Cultura` (ou similar) aparecer como redundante, o Moran's I está captando **diferença biológica entre culturas** mais do que autocorrelação espacial verdadeira. Refaça o Moran filtrando para uma única cultura via filtro global, e veja se o índice permanece alto.
+
+### "O variograma de kriging não estabiliza"
+
+Provavelmente seu dataset não tem **estrutura espacial detectável** na escala do experimento (poucos pontos amostrais, ou variável dominada por outros fatores que não a posição). Não rode a krigagem nessa situação — os parâmetros ajustados (range em milhões de metros) são numericamente válidos mas estatisticamente inúteis. Considere voltar ao IDW (§9.1) ou rever a coleta.
+
+### "Os modos de réplica `Réplica 1`, `Réplica 2` e `Réplica 3` parecem dar resultados diferentes para Chl a e b"
+
+São diferentes mesmo — cada um pega uma medição específica da planilha. `Réplica 1` usa a coluna `Chl a` original; `Réplica 2` usa `Chl a.1`. **Réplica 3 deixa Chl a/b vazios** (só existe `IAF.2`, não `Chl a.2`). Use estes modos quando quiser auditar/comparar leituras específicas; para análise normal, use **Média** ou **Mediana**.
+
+---
 
 ## 14. Referências
 
-*[A ser preenchido na próxima iteração.]*
+### Métodos estatísticos
+
+* Anderson, T. W., & Darling, D. A. (1952). Asymptotic theory of certain "goodness of fit" criteria based on stochastic processes. *Annals of Mathematical Statistics*, 23(2), 193-212.
+* Bergsma, W., & Wicher, M. (2013). A bias-correction for Cramér's V and Tschuprow's T. *Journal of the Korean Statistical Society*, 42(3), 323-328.
+* Cleveland, R. B., Cleveland, W. S., McRae, J. E., & Terpenning, I. (1990). STL: A seasonal-trend decomposition procedure based on loess. *Journal of Official Statistics*, 6(1), 3-73.
+* D'Agostino, R. B., Belanger, A., & D'Agostino Jr., R. B. (1990). A suggestion for using powerful and informative tests of normality. *American Statistician*, 44(4), 316-321.
+* Getis, A., & Ord, J. K. (1992). The analysis of spatial association by use of distance statistics. *Geographical Analysis*, 24(3), 189-206.
+* Kruskal, W. H., & Wallis, W. A. (1952). Use of ranks in one-criterion variance analysis. *JASA*, 47(260), 583-621.
+* Mann, H. B., & Whitney, D. R. (1947). On a test of whether one of two random variables is stochastically larger than the other. *Annals of Mathematical Statistics*, 18(1), 50-60.
+* Moran, P. A. P. (1948). The interpretation of statistical maps. *Journal of the Royal Statistical Society, Series B*, 10(2), 243-251.
+* Shapiro, S. S., & Wilk, M. B. (1965). An analysis of variance test for normality. *Biometrika*, 52(3-4), 591-611.
+
+### Outliers e modelagem
+
+* Breunig, M. M., Kriegel, H. P., Ng, R. T., & Sander, J. (2000). LOF: Identifying density-based local outliers. *SIGMOD Record*, 29(2), 93-104.
+* Liu, F. T., Ting, K. M., & Zhou, Z. H. (2008). Isolation forest. *ICDM*, 413-422.
+* Rousseeuw, P. J., & van Driessen, K. (1999). A fast algorithm for the minimum covariance determinant estimator. *Technometrics*, 41(3), 212-223.
+
+### Fisiologia vegetal
+
+* Farquhar, G. D., von Caemmerer, S., & Berry, J. A. (1980). A biochemical model of photosynthetic CO₂ assimilation in leaves of C3 species. *Planta*, 149(1), 78-90.
+
+### Bibliotecas
+
+* McKinney, W. (2010). pandas — Data analysis with Python. <https://pandas.pydata.org>
+* Pedregosa, F. et al. (2011). Scikit-learn: Machine learning in Python. *JMLR*, 12, 2825-2830.
+* Rey, S. J., & Anselin, L. (2010). PySAL: A Python library of spatial analytical methods. <https://pysal.org>
+* Seabold, S., & Perktold, J. (2010). statsmodels: Econometric and statistical modeling. <https://www.statsmodels.org>
+* Streamlit Inc. (2024). Streamlit. <https://streamlit.io>
+* Virtanen, P. et al. (2020). SciPy 1.0. *Nature Methods*, 17, 261-272.
 
 ## 15. Contribuindo
 
 Encontrou um bug, tem uma sugestão de melhoria ou quer adicionar uma análise nova?
 
-* **Bug ou pedido de feature:** abra uma issue no repositório do projeto no GitHub.
-* **Contribuir com código ou documentação:** veja [`docs/contributing.md`](contributing.md) para o fluxo de PRs, padrões de teste e como adicionar traduções.
+### 15.1 Reportando bugs e propondo features
+
+Abra uma issue no repositório do projeto no GitHub. Inclua:
+
+1. **Versão do app** (verifique no rodapé ou no `pyproject.toml`).
+2. **Passos para reproduzir** — comece sempre por "fui à aba X, cliquei em Y, esperava Z mas vi W".
+3. **Captura de tela** (se for um problema visual).
+4. **Trecho do dataset** (anonimizado) que dispara o problema, sempre que possível.
+
+### 15.2 Contribuindo com código
+
+* Veja [`docs/contributing.md`](contributing.md) para o fluxo de PRs e padrões de teste.
+* Veja [`docs/architecture.md`](architecture.md) para entender o layout dos módulos.
+* Veja [`docs/i18n.md`](i18n.md) para adicionar um novo idioma ou estender as traduções.
+
+### 15.3 Gerando este manual em PDF
+
+A fonte canônica deste manual é o arquivo Markdown que você está lendo (`docs/manual.pt.md`). O PDF é um derivado, gerado por [pandoc](https://pandoc.org/) + XeLaTeX.
+
+#### Localmente
+
+```bash
+# 1) Pré-requisitos (uma vez por máquina)
+brew install pandoc                       # macOS
+brew install --cask basictex
+sudo tlmgr install fancyhdr xurl booktabs longtable
+
+# Ubuntu equivalente:
+# sudo apt-get install pandoc texlive-xetex \
+#   texlive-fonts-recommended texlive-latex-recommended
+
+# 2) Gerar o PDF
+scripts/build_manual_pdf.sh                       # → docs/manual.pt.pdf
+scripts/build_manual_pdf.sh --lang en             # quando existir manual.en.md
+scripts/build_manual_pdf.sh --output /tmp/x.pdf   # caminho customizado
+```
+
+O PDF é gerado em `docs/manual.<lang>.pdf` e o `.gitignore` impede que ele seja commitado por acidente.
+
+#### Via GitHub Actions
+
+O workflow [`build-manual.yml`](../.github/workflows/build-manual.yml) gera o PDF automaticamente:
+
+* **Push para tag `v*`** — anexa o PDF como artifact da release correspondente.
+* **Mudanças em `docs/manual.*.md`** ou nos screenshots — roda o build para validar que nada quebrou.
+* **Execução manual** — vá em *Actions → Build manual PDF → Run workflow* e escolha o idioma.
+
+Os artifacts ficam disponíveis por 30 dias e podem ser baixados sem precisar instalar pandoc localmente.
+
+### 15.4 Traduzindo para outros idiomas
+
+O esqueleto deste manual está pronto para receber espelhos em inglês e espanhol:
+
+```bash
+cp docs/manual.pt.md docs/manual.en.md
+cp docs/manual.pt.md docs/manual.es.md
+```
+
+Traduza o conteúdo mantendo a estrutura de cabeçalhos. As imagens em `docs/img/manual/` são compartilhadas entre os três idiomas — só precisa de uma cópia.
+
+---
+
+*Fim do manual. Versão 1.0 — alinhada à versão 1.x do aplicativo.*
 
 ### 15.1 Gerando este manual em PDF
 
