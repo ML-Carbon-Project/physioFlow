@@ -1,6 +1,6 @@
-# Fisiologia Vegetal - Goiás Verde
+# PhysioFlow — Plataforma de Análise de Fisiologia Vegetal
 
-> Uma plataforma web open-source interativa para análise exploratória de dados, modelagem espacial e aprendizado de máquina para parâmetros ecofisiológicos de culturas agrícolas (soja e cana-de-açúcar).
+> Uma plataforma web open-source interativa para análise exploratória de dados, modelagem espacial e aprendizado de máquina para parâmetros ecofisiológicos de culturas agrícolas (soja e cana-de-açúcar). Desenvolvida no âmbito do **Projeto Goiás Verde**.
 
 [English](./README.md) | [Português](./README.pt.md) | [Español](./README.es.md)
 

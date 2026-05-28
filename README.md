@@ -1,6 +1,6 @@
-# Crop Physiology - Goiás Verde
+# PhysioFlow — Crop Physiology Data Analysis Platform
 
-> An open-source interactive web platform for exploratory data analysis, spatial modeling, and machine learning of crop ecophysiological parameters (soybean and sugarcane).
+> An open-source interactive web platform for exploratory data analysis, spatial modeling, and machine learning of crop ecophysiological parameters (soybean and sugarcane). Built within the **Goiás Verde Project**.
 
 [English](./README.md) | [Português](./README.pt.md) | [Español](./README.es.md)
 
