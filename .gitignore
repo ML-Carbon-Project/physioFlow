@@ -15,3 +15,6 @@ htmlcov/
 
 # Artefatos gerados pelo build do manual (PDFs locais; o CI publica como artifact)
 docs/manual.*.pdf
+
+# Memória interna do Claude Code — não vai para o repo
+.claude-memory/

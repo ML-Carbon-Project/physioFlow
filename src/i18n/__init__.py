@@ -69,6 +69,12 @@ def t(key: str, **params: Any) -> str:
 # ---- Traducao em runtime das mensagens StepLog produzidas em pipeline.py ----
 # pipeline.py mantem as mensagens em pt-BR (compatibilidade com testes). A
 # traducao ocorre apenas na hora de exibir o relatorio.
+#
+# Duas familias de padroes coexistem:
+#   * legacy (ChamberFlux): patterns regex genericos que casam com nomes
+#     dinamicos como "Filtro R2 (CO2_DRY >= 0.9)";
+#   * physioflow: mapeamento direto (string-para-string) com os 9 nomes
+#     de etapa atuais do pipeline de Fisiologia Vegetal.
 _STEP_PATTERNS_EN: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^Filtro diagnostico \((.+) == (.+)\)$"), "Diagnostic filter ({0} == {1})"),
     (re.compile(r"^Remocao de variaveis \((\d+) colunas\)$"), "Variable removal ({0} columns)"),
@@ -82,15 +88,53 @@ _STEP_PATTERNS_EN: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^Agregacao REP ignorada \((.+)\)$"), "REP aggregation skipped ({0})"),
 ]
 
+# Mapeamento exato dos nomes de etapa atuais do PhysioFlow.
+# Quando o pipeline.py cria um StepLog(step="<x>"), procuramos primeiro aqui
+# antes de tentar os padroes legacy acima.
+_STEP_MAP_EN: dict[str, str] = {
+    "Padronização de texto (stripping de strings)": "Text standardization (string stripping)",
+    "Remoção de registros sem metadados essenciais": "Removal of records without essential metadata",
+    "Remoção de pontos de grade vazios (sem medição)": "Removal of empty grid points (no measurements)",
+    "Consolidação de réplicas por média aritmética": "Replicate consolidation by arithmetic mean",
+    "Consolidação de réplicas por mediana": "Replicate consolidation by median",
+    "Desdobramento de réplicas em registros separados": "Replicate unfolding into separate records",
+    "Seleção exclusiva da Réplica 1": "Replicate 1 only",
+    "Seleção exclusiva da Réplica 2": "Replicate 2 only",
+    "Seleção exclusiva da Réplica 3 (IAF)": "Replicate 3 only (LAI)",
+}
+
+_STEP_MAP_ES: dict[str, str] = {
+    "Padronização de texto (stripping de strings)": "Estandarización de texto (stripping de cadenas)",
+    "Remoção de registros sem metadados essenciais": "Eliminación de registros sin metadatos esenciales",
+    "Remoção de pontos de grade vazios (sem medição)": "Eliminación de puntos de cuadrícula vacíos (sin medición)",
+    "Consolidação de réplicas por média aritmética": "Consolidación de réplicas por media aritmética",
+    "Consolidação de réplicas por mediana": "Consolidación de réplicas por mediana",
+    "Desdobramento de réplicas em registros separados": "Desdoblamiento de réplicas en registros separados",
+    "Seleção exclusiva da Réplica 1": "Sólo Réplica 1",
+    "Seleção exclusiva da Réplica 2": "Sólo Réplica 2",
+    "Seleção exclusiva da Réplica 3 (IAF)": "Sólo Réplica 3 (IAF)",
+}
+
 
 def translate_step(step: str) -> str:
-    """Traduz uma mensagem StepLog gerada em pt-BR para o idioma corrente."""
-    if get_language() != "en":
-        return step
-    for pattern, template in _STEP_PATTERNS_EN:
-        match = pattern.match(step)
-        if match:
-            return template.format(*match.groups())
+    """Traduz uma mensagem StepLog gerada em pt-BR para o idioma corrente.
+
+    Ordem de resolucao:
+    1. Mapeamento exato no dicionario do idioma ativo (etapas atuais do PhysioFlow).
+    2. Patterns regex legacy (compatibilidade com ChamberFlux) — apenas en.
+    3. Retorna o original em pt-BR.
+    """
+    language = get_language()
+    if language == "en":
+        if step in _STEP_MAP_EN:
+            return _STEP_MAP_EN[step]
+        for pattern, template in _STEP_PATTERNS_EN:
+            match = pattern.match(step)
+            if match:
+                return template.format(*match.groups())
+    elif language == "es":
+        if step in _STEP_MAP_ES:
+            return _STEP_MAP_ES[step]
     return step
 
 

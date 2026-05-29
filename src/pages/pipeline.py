@@ -7,7 +7,7 @@ import streamlit as st
 from src.components.dataset_controls import ensure_raw_dataframe
 from src.pipeline import clean_fisiologia_data, build_step_report
 from src.state import get_processed_dataframe, get_report_dataframe, set_processed_dataset
-from src.i18n import t
+from src.i18n import t, translate_step
 
 
 def render():
@@ -21,13 +21,17 @@ def render():
     rep_method = st.session_state.get("rep_method", "media")
     
     # Exibe informações sobre as etapas automatizadas de Fisiologia
-    st.markdown(f"### {t('pipeline.section_info', default='Pipeline de Limpeza Automatizada de Fisiologia')}")
+    st.markdown(f"### {t('pipeline.section_info')}")
     st.info(
-        "Este pipeline executa as seguintes etapas estruturadas:\n"
-        "1. **Padronização:** Limpeza de espaços extras em colunas de texto.\n"
-        "2. **Filtro de Metadados:** Remoção de linhas sem informações essenciais (Cultura, Uso atual, Época).\n"
-        "3. **Filtro de Grade Vazia:** Remoção de linhas da grade amostral que não possuem medições reais.\n"
-        "4. **Tratamento de Réplicas:** Consolidação ou desdobramento de Clorofila e IAF conforme o modo selecionado."
+        "\n".join(
+            [
+                t("pipeline.info_intro"),
+                "1. " + t("pipeline.info_step_1"),
+                "2. " + t("pipeline.info_step_2"),
+                "3. " + t("pipeline.info_step_3"),
+                "4. " + t("pipeline.info_step_4"),
+            ]
+        )
     )
 
     # Exibe a opção de tratamento de réplicas também na página para conveniência
@@ -92,13 +96,29 @@ def render():
                 st.warning(
                     t(
                         "pipeline.warn_step_discard",
-                        step=step["Etapa"],
+                        # translate_step traduz o nome da etapa preservando os
+                        # nomes em pt-BR como fonte canônica nos testes.
+                        step=translate_step(step["Etapa"]),
                         pct=f"{step['% removidas']:.1f}",
                         before=int(step["Linhas antes"]),
                         after=int(step["Linhas depois"]),
                     )
                 )
-        st.dataframe(report, use_container_width=True)
+        # Cria uma cópia para exibição com nomes de etapa e cabeçalhos traduzidos.
+        # O DataFrame original em `report` mantém os nomes em pt-BR (fonte de
+        # verdade) — só a renderização visual é localizada.
+        display_report = report.copy()
+        display_report["Etapa"] = display_report["Etapa"].map(translate_step)
+        display_report = display_report.rename(
+            columns={
+                "Etapa": t("pipeline.report.col.step"),
+                "Linhas antes": t("pipeline.report.col.rows_before"),
+                "Linhas depois": t("pipeline.report.col.rows_after"),
+                "Removidas": t("pipeline.report.col.removed"),
+                "% removidas": t("pipeline.report.col.percent_removed"),
+            }
+        )
+        st.dataframe(display_report, use_container_width=True)
     else:
         st.info(t("pipeline.report_empty"))
 
