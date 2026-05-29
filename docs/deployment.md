@@ -18,7 +18,7 @@ For a Docker-based one-command deployment, see the v1.1 roadmap.
 ### Option A — `pip` venv (recommended for v1.0; Linux/macOS/Windows)
 
 ```bash
-git clone https://github.com/danielhilario-if/physioflow.git
+git clone https://github.com/ML-Carbon-Project/physioFlow.git
 cd physioflow
 python3.10 -m venv .venv
 source .venv/bin/activate         # or .venv\Scripts\Activate.ps1 on Windows

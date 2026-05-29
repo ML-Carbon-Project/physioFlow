@@ -19,7 +19,7 @@ PhysioFlow é uma aplicação Streamlit open-source para análise de dados de fi
 ## 1. Visão geral
 
 * **Nome:** PhysioFlow
-* **Repositório:** [github.com/danielhilario-if/physioflow](https://github.com/danielhilario-if/physioflow) (atualmente privado)
+* **Repositório:** [github.com/ML-Carbon-Project/physioFlow](https://github.com/ML-Carbon-Project/physioFlow) (atualmente privado)
 * **Demo ao vivo:** [physioflow.streamlit.app](https://physioflow.streamlit.app/) (depende do repo estar público; cai quando Cloud reiniciar)
 * **Licença:** GPL-2.0-or-later (decisão consciente — não trocar para MIT)
 * **Stack:** Streamlit + pandas + scipy + statsmodels + scikit-learn + esda + libpysal + geopandas + pyproj
@@ -202,4 +202,4 @@ Depois disso, você tem ~80 % do contexto do projeto.
 
 ---
 
-*Para perguntas sobre este documento ou sobre o projeto, abra uma issue em [github.com/danielhilario-if/physioflow/issues](https://github.com/danielhilario-if/physioflow/issues).*
+*Para perguntas sobre este documento ou sobre o projeto, abra uma issue em [github.com/ML-Carbon-Project/physioFlow/issues](https://github.com/ML-Carbon-Project/physioFlow/issues).*

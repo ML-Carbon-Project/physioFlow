@@ -6,7 +6,7 @@ intentionally keeps the runtime in a single Streamlit process.
 ## Setup
 
 ```bash
-git clone https://github.com/danielhilario-if/physioflow.git
+git clone https://github.com/ML-Carbon-Project/physioFlow.git
 cd physioflow
 python3.10 -m venv .venv
 source .venv/bin/activate    # or .venv\Scripts\Activate.ps1 on Windows
@@ -101,7 +101,7 @@ If GDAL fails on Windows, see `docs/deployment.md` for the Conda route.
 ## Reporting bugs
 
 Open an issue at
-<https://github.com/danielhilario-if/physioflow/issues> with:
+<https://github.com/ML-Carbon-Project/physioFlow/issues> with:
 
 - Streamlit and Python versions (`streamlit --version`, `python --version`).
 - The first 20 rows of the dataset (or the *Schema validation* CSV

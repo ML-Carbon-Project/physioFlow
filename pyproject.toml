@@ -7,8 +7,17 @@ name = "physioflow"
 version = "1.0.0"
 description = "Open-source interactive platform for crop ecophysiology data analysis (photosynthesis, transpiration, chlorophyll, LAI) with schema validation, statistical guard-rails, replicate handling and geospatial modules"
 authors = [
+    {name = "Daniel Hilário da Silva", email = "daniel.hilario@ifgoiano.edu.br"},
     {name = "Leandro Rodrigues da Silva Souza", email = "leandrorodrigues.s@gmail.com"},
-    {name = "Daniel Hilário da Silva"},
+    {name = "André Abade", email = "andre.abade@ifmt.edu.br"},
+    {name = "Francisco de Almeida Lobo", email = "francisco.lobo@ufmt.br"},
+    {name = "Fernando Rodrigues Cabral Filho", email = "fernandorcfilho10@gmail.com"},
+    {name = "Erli Pinto dos Santos", email = "erli@ufrrj.br"},
+    {name = "Adinan Alves da Silva", email = "adinan.alves@ifgoiano.edu.br"},
+    {name = "Daiane Alves da Silva", email = "professoradaiane015@gmail.com"},
+    {name = "Alan Carlos da Costa", email = "alan.costa@ifgoiano.edu.br"},
+    {name = "Ketlyn Santos Sousa", email = "ketlyn.s.sousa@gmail.com"},
+    {name = "Igor Eli da Silva", email = "igorelizoo@gmail.com"},
 ]
 license = {text = "GPL-2.0-or-later"}
 readme = "README.md"
