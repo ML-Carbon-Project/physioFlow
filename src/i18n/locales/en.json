@@ -59,7 +59,7 @@
   "upload.metric_cols": "Columns",
   "upload.preview_title": "Dataset preview",
   "upload.schema.title": "Expected schema validation",
-  "upload.schema.caption": "The dataset is checked against the reference schema (LI-COR LI-7810SC + Smart Chamber export). Missing columns do not block the app — they simply disable specific features.",
+  "upload.schema.caption": "The dataset is checked against the plant-physiology reference schema (IRGA, chlorophyll meter, ceptometer). Missing columns do not block the app — they simply disable specific features.",
   "upload.schema.tier_required": "Required",
   "upload.schema.tier_recommended": "Recommended",
   "upload.schema.tier_optional": "Optional",

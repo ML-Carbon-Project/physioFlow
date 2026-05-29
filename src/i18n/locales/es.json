@@ -59,7 +59,7 @@
   "upload.metric_cols": "Columnas",
   "upload.preview_title": "Vista previa del dataset",
   "upload.schema.title": "Validación del esquema esperado",
-  "upload.schema.caption": "El dataset se compara con el esquema de referencia (export LI-COR LI-7810SC + Smart Chamber). Las columnas ausentes no bloquean el uso del app — sólo deshabilitan funcionalidades específicas.",
+  "upload.schema.caption": "El dataset se compara con el esquema de referencia de fisiología vegetal (IRGA, medidor de clorofila, ceptómetro). Las columnas ausentes no bloquean el uso del app — sólo deshabilitan funcionalidades específicas.",
   "upload.schema.tier_required": "Requeridas",
   "upload.schema.tier_recommended": "Recomendadas",
   "upload.schema.tier_optional": "Opcionales",
