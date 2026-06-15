@@ -34,6 +34,23 @@ _DESIGN_LABEL_KEYS = {
     "Fatorial+Bloco": "exp.design.factorial_block",
 }
 
+# Rótulos dos métodos de comparação de médias (nomes próprios, não traduzidos).
+_METHOD_LABELS = {
+    "tukey": "Tukey HSD",
+    "scott-knott": "Scott-Knott",
+    "duncan": "Duncan",
+    "lsd": "LSD / DMS (Fisher)",
+    "scheffe": "Scheffé",
+}
+
+# Função de src.stats_utils que implementa cada método (citada no script gerado).
+_METHOD_FUNCS = {
+    "scott-knott": "scott_knott_groups",
+    "duncan": "duncan_groups",
+    "lsd": "lsd_groups",
+    "scheffe": "scheffe_groups",
+}
+
 
 def _format_p(p: float) -> str:
     if p != p:  # NaN
@@ -59,21 +76,23 @@ def _build_script(
     cat_internal = [v for k, v in rename.items() if v != "y"]
     factor_internal = rename[factor]
 
-    if method == "scott-knott":
-        compare = (
-            "# --- Scott-Knott (grupos disjuntos) --------------------------------------\n"
-            "# Scott-Knott não vem no statsmodels; implementação em src/stats_utils.py\n"
-            "# (scott_knott_groups). Abaixo, as médias por nível; combine com a função\n"
-            "# para obter as letras de agrupamento.\n"
-            f'means = data.groupby("{factor_internal}")["y"].agg(["count", "mean", "std"])\n'
-            'print(means.sort_values("mean", ascending=False))\n'
-        )
-    else:
+    if method == "tukey":
         compare = (
             "# --- Tukey HSD ------------------------------------------------------------\n"
             "from statsmodels.stats.multicomp import pairwise_tukeyhsd\n\n"
             f'tukey = pairwise_tukeyhsd(data["y"], data["{factor_internal}"], alpha={alpha})\n'
             "print(tukey.summary())\n"
+        )
+    else:
+        func = _METHOD_FUNCS.get(method, "scott_knott_groups")
+        label = _METHOD_LABELS.get(method, method)
+        compare = (
+            f"# --- {label} -----------------------------------------------------\n"
+            f"# {label} não vem no statsmodels; implementação em src/stats_utils.py\n"
+            f"# ({func}). Abaixo, as médias por nível; combine com a função para\n"
+            f"# obter as letras de agrupamento (precisa de ms_error e df do resíduo).\n"
+            f'means = data.groupby("{factor_internal}")["y"].agg(["count", "mean", "std"])\n'
+            'print(means.sort_values("mean", ascending=False))\n'
         )
 
     return f'''"""Análise de delineamento experimental gerada pelo PhysioFlow.
@@ -215,11 +234,10 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
     factor = col1.selectbox(
         t("exp.compare.factor"), options=result.factor_terms, key="exp_compare_factor"
     )
-    method_label = col2.radio(
+    method_label = col2.selectbox(
         t("exp.compare.method"),
-        options=["tukey", "scott-knott"],
-        format_func=lambda m: "Tukey HSD" if m == "tukey" else "Scott-Knott",
-        horizontal=True,
+        options=["tukey", "scott-knott", "duncan", "lsd", "scheffe"],
+        format_func=lambda m: _METHOD_LABELS.get(m, m),
         key="exp_compare_method",
     )
 

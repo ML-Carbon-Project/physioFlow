@@ -7,14 +7,18 @@ import pandas as pd
 import pytest
 
 from src.stats_utils import (
+    MEAN_COMPARISON_METHODS,
     audit_pair_confounding,
     compare_means,
     cramers_v,
     detect_confounded_pairs,
+    duncan_groups,
     fit_experimental_anova,
     group_means,
     homoscedasticity_test,
+    lsd_groups,
     normality_test,
+    scheffe_groups,
     scott_knott_groups,
     tukey_groups,
 )
@@ -134,6 +138,46 @@ class TestMeanComparison:
     def test_group_means_sorted_descending(self):
         table = group_means(_crd_dataset(), "y", "trat")
         assert list(table["mean"]) == sorted(table["mean"], reverse=True)
+
+
+class TestAdditionalComparisonMethods:
+    # Médias bem separadas → todos os métodos dão letras distintas.
+    WELL_SPREAD = ({"A": 10.0, "B": 20.0, "C": 30.0}, {"A": 5, "B": 5, "C": 5})
+    # A e B colados, C distante.
+    TWO_CLOSE = ({"A": 10.0, "B": 10.1, "C": 25.0}, {"A": 5, "B": 5, "C": 5})
+
+    @pytest.mark.parametrize("fn", [lsd_groups, scheffe_groups, duncan_groups])
+    def test_well_spread_gives_distinct_letters(self, fn):
+        means, ns = self.WELL_SPREAD
+        letters = fn(means, ns, ms_error=0.5, df_error=12)
+        assert len({letters["A"], letters["B"], letters["C"]}) == 3
+        assert not (set(letters["A"]) & set(letters["C"]))
+
+    @pytest.mark.parametrize("fn", [lsd_groups, scheffe_groups, duncan_groups])
+    def test_close_means_share_letter(self, fn):
+        means, ns = self.TWO_CLOSE
+        letters = fn(means, ns, ms_error=1.0, df_error=12)
+        assert set(letters["A"]) & set(letters["B"])
+        assert not (set(letters["A"]) & set(letters["C"]))
+
+    def test_scheffe_more_conservative_than_lsd(self):
+        # k=3 com o par extremo (A-C, diff=3.5) entre os limiares LSD e Scheffé:
+        # LSD (liberal) separa A de C; Scheffé (conservador) agrupa tudo.
+        # Para k=2 ambos coincidem (sqrt(F(1,gl)) = t(gl)), por isso usa-se k=3.
+        means = {"A": 10.0, "B": 11.75, "C": 13.5}
+        ns = {"A": 4, "B": 4, "C": 4}
+        lsd = lsd_groups(means, ns, ms_error=4.0, df_error=9)
+        scheffe = scheffe_groups(means, ns, ms_error=4.0, df_error=9)
+        assert not (set(lsd["A"]) & set(lsd["C"]))          # LSD separa os extremos
+        assert set(scheffe["A"]) & set(scheffe["C"])        # Scheffé agrupa
+
+    def test_compare_means_dispatches_all_methods(self):
+        df = _crd_dataset()
+        result = fit_experimental_anova(df, response="y", treatment="trat")
+        for method in MEAN_COMPARISON_METHODS:
+            table = compare_means(df, "y", "trat", result.ms_error, result.df_error, method=method)
+            assert "group_letter" in table.columns
+            assert table["group_letter"].notna().all()
 
 
 class TestCramersV:

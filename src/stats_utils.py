@@ -536,6 +536,101 @@ def scott_knott_groups(
     return assignment
 
 
+def _letters_from_threshold(means, ns, threshold_fn) -> dict[str, str]:
+    """CLD a partir de uma função de limiar por par ``(n_i, n_j) -> limite``.
+
+    Dois grupos não diferem quando ``|m_i - m_j| <= threshold_fn(n_i, n_j)``.
+    """
+    groups = list(means)
+    not_different: set[frozenset] = set()
+    for i in range(len(groups)):
+        for j in range(i + 1, len(groups)):
+            a, b = groups[i], groups[j]
+            if abs(means[a] - means[b]) <= threshold_fn(ns[a], ns[b]):
+                not_different.add(frozenset((a, b)))
+    return _compact_letter_display(means, not_different)
+
+
+def lsd_groups(
+    means: dict[str, float], ns: dict[str, int],
+    ms_error: float, df_error: float, alpha: float = 0.05,
+) -> dict[str, str]:
+    """Fisher LSD / DMS: ``LSD_ij = t(α/2, gl) · sqrt(QMR(1/n_i + 1/n_j))``.
+
+    Mais liberal (sem correção para comparações múltiplas); acomoda n desiguais.
+    """
+    from scipy import stats as sps
+
+    if len(means) < 2:
+        return {g: "a" for g in means}
+    t = float(sps.t.ppf(1 - alpha / 2, df_error))
+    return _letters_from_threshold(
+        means, ns, lambda na, nb: t * sqrt(ms_error * (1.0 / na + 1.0 / nb))
+    )
+
+
+def scheffe_groups(
+    means: dict[str, float], ns: dict[str, int],
+    ms_error: float, df_error: float, alpha: float = 0.05,
+) -> dict[str, str]:
+    """Scheffé: limiar ``sqrt((k-1)·F(α,k-1,gl)) · sqrt(QMR(1/n_i + 1/n_j))``.
+
+    O mais conservador dos testes pareados; acomoda n desiguais.
+    """
+    from scipy import stats as sps
+
+    k = len(means)
+    if k < 2:
+        return {g: "a" for g in means}
+    crit = sqrt((k - 1) * float(sps.f.ppf(1 - alpha, k - 1, df_error)))
+    return _letters_from_threshold(
+        means, ns, lambda na, nb: crit * sqrt(ms_error * (1.0 / na + 1.0 / nb))
+    )
+
+
+def duncan_groups(
+    means: dict[str, float], ns: dict[str, int],
+    ms_error: float, df_error: float, alpha: float = 0.05,
+) -> dict[str, str]:
+    """Teste de amplitude múltipla de Duncan (rank-based).
+
+    Para duas médias separadas por ``p`` posições no ranking, o limiar usa a
+    amplitude estudentizada com nível de proteção ``α_p = 1 - (1-α)^(p-1)``:
+    ``R_p = q(α_p, p, gl) · sqrt(QMR / r)``. Para n desiguais usa a média
+    harmônica das repetições como ``r``.
+    """
+    from scipy import stats as sps
+
+    groups_sorted = sorted(means, key=lambda g: means[g], reverse=True)
+    k = len(groups_sorted)
+    if k < 2:
+        return {g: "a" for g in groups_sorted}
+    r_harm = k / sum(1.0 / ns[g] for g in groups_sorted)
+    se = sqrt(ms_error / r_harm)
+
+    not_different: set[frozenset] = set()
+    for i in range(k):
+        for j in range(i + 1, k):
+            p = j - i + 1
+            alpha_p = 1.0 - (1.0 - alpha) ** (p - 1)
+            q_p = float(sps.studentized_range.ppf(1 - alpha_p, p, df_error))
+            r_p = q_p * se
+            a, b = groups_sorted[i], groups_sorted[j]
+            if abs(means[a] - means[b]) <= r_p:
+                not_different.add(frozenset((a, b)))
+    return _compact_letter_display(means, not_different)
+
+
+# Despachante de métodos de comparação de médias.
+MEAN_COMPARISON_METHODS: dict[str, object] = {
+    "tukey": tukey_groups,
+    "scott-knott": scott_knott_groups,
+    "duncan": duncan_groups,
+    "lsd": lsd_groups,
+    "scheffe": scheffe_groups,
+}
+
+
 def compare_means(
     df: pd.DataFrame,
     response: str,
@@ -547,18 +642,17 @@ def compare_means(
 ) -> pd.DataFrame:
     """Tabela de médias com letras de significância pelo método escolhido.
 
-    ``method`` ∈ {``"tukey"``, ``"scott-knott"``}. Devolve a tabela de
-    ``group_means`` acrescida da coluna ``group_letter``.
+    ``method`` ∈ {``"tukey"``, ``"scott-knott"``, ``"duncan"``, ``"lsd"``,
+    ``"scheffe"``}. Devolve a tabela de ``group_means`` acrescida da coluna
+    ``group_letter``.
     """
     table = group_means(df, response, factor)
     if table.empty:
         return table
     means = dict(zip(table["group"], table["mean"]))
     ns = dict(zip(table["group"], table["n"]))
-    if method == "scott-knott":
-        letters = scott_knott_groups(means, ns, ms_error, df_error, alpha)
-    else:
-        letters = tukey_groups(means, ns, ms_error, df_error, alpha)
+    fn = MEAN_COMPARISON_METHODS.get(method, tukey_groups)
+    letters = fn(means, ns, ms_error, df_error, alpha)
     table["group_letter"] = table["group"].map(letters)
     return table
 
@@ -567,14 +661,18 @@ __all__ = [
     "ConfoundingPair",
     "ExperimentalAnova",
     "AssumptionResult",
+    "MEAN_COMPARISON_METHODS",
     "audit_pair_confounding",
     "compare_means",
     "cramers_v",
     "detect_confounded_pairs",
+    "duncan_groups",
     "fit_experimental_anova",
     "group_means",
     "homoscedasticity_test",
+    "lsd_groups",
     "normality_test",
+    "scheffe_groups",
     "scott_knott_groups",
     "tukey_groups",
 ]
