@@ -37,7 +37,18 @@ _SEP = {
     "yates.oats.txt": "\t",
     "australia.soybean.txt": "\t",
     "SPRING_BARLEY.txt": "\t",
+    "sk_crd1.csv": ",",
+    "sk_rcbd.csv": ",",
+    "sk_sorghum.csv": ",",
 }
+
+
+def _partition(groups: dict[str, str]) -> frozenset:
+    """Conjunto de conjuntos de níveis que compartilham a mesma letra."""
+    buckets: dict[str, set] = {}
+    for level, letter in groups.items():
+        buckets.setdefault(letter, set()).add(level)
+    return frozenset(frozenset(v) for v in buckets.values())
 
 
 def _load(name: str) -> pd.DataFrame:
@@ -154,3 +165,36 @@ class TestAustraliaSoybean:
         res = fit_experimental_anova(df, response="yield", treatment="loc", factor2="year")
         assert res.design == "Fatorial"
         assert any("×" in idx for idx in res.table.index)   # termo de interação
+
+
+class TestScottKnottVsR:
+    """Scott-Knott validado contra o pacote oficial ``ScottKnott`` do R.
+
+    Os agrupamentos esperados foram gerados rodando ``ScottKnott::SK`` (CRAN) nos
+    datasets que acompanham o pacote (GPL). Nossa implementação deve reproduzir
+    o MESMO particionamento, treatment a treatment, sem ambiguidade.
+    """
+
+    def _our_partition(self, df, treatment, block):
+        res = fit_experimental_anova(df, "y", treatment, block=block)
+        table = compare_means(df, "y", treatment, res.ms_error, res.df_error, method="scott-knott")
+        return _partition(dict(zip(table["group"], table["group_letter"])))
+
+    def test_crd1_matches_official(self):
+        df = _load("sk_crd1.csv")
+        expected = frozenset({frozenset({"tr-1", "tr-2", "tr-3"}), frozenset({"tr-4"})})
+        assert self._our_partition(df, "x", None) == expected
+
+    def test_rcbd_matches_official(self):
+        df = _load("sk_rcbd.csv")
+        expected = frozenset({frozenset({"A", "B", "C", "D"}), frozenset({"E"})})
+        assert self._our_partition(df, "tra", "blk") == expected
+
+    def test_sorghum_16_treatments_matches_official(self):
+        # Exemplo do artigo Jelihovschi et al. (2014): rendimento de sorgo.
+        df = _load("sk_sorghum.csv")
+        expected = frozenset({
+            frozenset({"1", "2", "3", "4", "5", "7", "8", "9", "14"}),
+            frozenset({"6", "10", "11", "12", "13", "15", "16"}),
+        })
+        assert self._our_partition(df, "x", "r") == expected

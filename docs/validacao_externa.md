@@ -57,6 +57,22 @@ a esses valores; eles foram reproduzidos do zero).
 
 CV(a) = 23,59%, CV(b) = 12,80%. **Coincidência decimal** nos três F.
 
+## 3b. Scott-Knott vs. pacote oficial do R (`sk_crd1`, `sk_rcbd`, `sk_sorghum`)
+
+Validação **padrão-ouro**: o agrupamento de Scott-Knott da ferramenta foi
+comparado, treatment a treatment, com o do pacote oficial `ScottKnott` (CRAN)
+executado no R, usando os datasets que acompanham o pacote (GPL). **Bate 100%.**
+
+| Dataset | Delineamento | k | Partição (oficial = PhysioFlow) |
+|---|---|---|---|
+| `sk_crd1` | DIC | 4 | {tr-1, tr-2, tr-3} · {tr-4} |
+| `sk_rcbd` | DBC | 5 | {A, B, C, D} · {E} |
+| `sk_sorghum` | DBC | 16 | {1,2,3,4,5,7,8,9,14} · {6,10,11,12,13,15,16} |
+
+O `sk_sorghum` é o exemplo de rendimento de sorgo do artigo de Jelihovschi,
+Faria & Allaman (2014) — a mesma referência cuja formulação (σ²₀, λ, ν₀=k/(π−2))
+o motor implementa. Reprodução em `tests/test_sample_datasets.py::TestScottKnottVsR`.
+
 ## 4. Soja multiambiente (`australia.soybean.txt`)
 
 Ensaio com 8 ambientes, 58 genótipos e 6 variáveis. Usado para a validação de
