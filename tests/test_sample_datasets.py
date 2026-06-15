@@ -27,6 +27,7 @@ import pytest
 from scipy import stats as sps
 
 from src.stats_utils import (
+    compare_means,
     correlation_analysis,
     fit_dose_response,
     fit_experimental_anova,
@@ -34,12 +35,14 @@ from src.stats_utils import (
 
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "data" / "sample"
 
-# Separador por arquivo (BESAG é separado por espaços; os demais por tab).
+# Separador por arquivo (BESAG é separado por espaços; os demais por tab/vírgula).
 _SEP = {
     "BESAG_ELBATAN.txt": r"\s+",
     "DURBAN_ROWCOL.txt": "\t",
     "RATPUP.txt": "\t",
     "SALMON.txt": "\t",
+    "PRESSURE.txt": "\t",
+    "penguins.csv": ",",
 }
 
 
@@ -113,3 +116,68 @@ class TestDurbanRowcol:
         assert res.design == "DBC"
         assert df["gen"].nunique() == 272
         assert "rep" in res.table.index
+
+
+class TestPenguins:
+    """Palmer Penguins (clássico) — comparação com resultados publicados.
+
+    Referências cruzadas (ver docs/validacao_externa.md):
+    - correlação flipper × body_mass ≈ 0,87 (literatura);
+    - Gentoo é a espécie mais pesada e se separa das demais;
+    - Adelie e Chinstrap têm massa praticamente igual (mesma letra).
+    """
+
+    def test_body_mass_anova_by_species_and_tukey_letters(self):
+        df = _load("penguins.csv")
+        res = fit_experimental_anova(df, response="body_mass_g", treatment="species")
+        assert res.design == "DIC"
+        assert res.n_obs == 342                       # 344 - 2 com body_mass ausente
+        assert res.table.loc["species", "p_value"] < 1e-50
+        assert 8.0 < res.cv_percent < 14.0
+
+        means = compare_means(df, "body_mass_g", "species", res.ms_error, res.df_error, "tukey")
+        letters = dict(zip(means["group"], means["group_letter"]))
+        # Gentoo isolado; Adelie e Chinstrap compartilham letra (massas ~iguais).
+        assert not (set(letters["Gentoo"]) & set(letters["Adelie"]))
+        assert set(letters["Adelie"]) & set(letters["Chinstrap"])
+
+    def test_flipper_bodymass_correlation_matches_literature(self):
+        df = _load("penguins.csv")
+        res = correlation_analysis(df, ["flipper_length_mm", "body_mass_g"], "pearson")
+        r = res.corr.loc["flipper_length_mm", "body_mass_g"]
+        assert r == pytest.approx(0.871, abs=0.01)    # ~0,87 publicado
+        # Simpson: bill_depth × body_mass é negativo no agregado.
+        res2 = correlation_analysis(df, ["bill_depth_mm", "body_mass_g"], "pearson")
+        assert res2.corr.loc["bill_depth_mm", "body_mass_g"] < 0
+
+    def test_factorial_species_by_sex_cleans_junk_levels(self):
+        # sex tem "." e vazios; clean_factor_levels (no fit) deve descartá-los,
+        # restando só MALE/FEMALE → fatorial 3×2 válido.
+        df = _load("penguins.csv")
+        res = fit_experimental_anova(df, response="body_mass_g", treatment="species", factor2="sex")
+        assert res.design == "Fatorial"
+        sex_term = next(i for i in res.table.index if i not in ("species", "Residual") and "×" not in i)
+        assert res.table.loc["species", "p_value"] < 0.05
+        assert res.table.loc[sex_term, "p_value"] < 0.05
+        # apenas 2 níveis de sexo entraram (333 = 168 MALE + 165 FEMALE)
+        assert res.n_obs == 333
+
+
+class TestPressureThreeWay:
+    """Pressão arterial: fatorial 3×2×2 (drug × biofeed × diet), balanceado."""
+
+    def test_three_way_factorial_includes_triple_interaction(self):
+        df = _load("PRESSURE.txt")
+        res = fit_experimental_anova(
+            df, response="pressure", treatment="drug", factor2="biofeed", factor3="diet"
+        )
+        assert res.design == "Fatorial"
+        # termo de interação tripla presente (dois "×" no rótulo)
+        assert any(idx.count("×") == 2 for idx in res.table.index)
+        assert res.table.loc["drug", "p_value"] < 0.05
+        assert res.factor_terms == ["drug", "biofeed", "diet"]
+
+    def test_factor3_requires_factor2(self):
+        df = _load("PRESSURE.txt")
+        with pytest.raises(ValueError):
+            fit_experimental_anova(df, response="pressure", treatment="drug", factor3="diet")

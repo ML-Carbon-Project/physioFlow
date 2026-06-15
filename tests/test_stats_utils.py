@@ -100,6 +100,35 @@ class TestFitExperimentalAnova:
         assert result.design == "Fatorial"
         assert any("×" in idx for idx in result.table.index)  # termo de interação
 
+    def test_three_way_factorial_has_triple_interaction(self):
+        rng = np.random.default_rng(9)
+        rows = []
+        for a in ("a1", "a2"):
+            for b in ("b1", "b2"):
+                for c in ("c1", "c2"):
+                    base = 10 + (4 if a == "a2" else 0) + (3 if b == "b2" else 0) + (2 if c == "c2" else 0)
+                    for _ in range(4):
+                        rows.append({"A": a, "B": b, "C": c, "y": base + rng.normal(0, 0.4)})
+        df = pd.DataFrame(rows)
+        result = fit_experimental_anova(df, response="y", treatment="A", factor2="B", factor3="C")
+        assert result.design == "Fatorial"
+        assert result.factor_terms == ["A", "B", "C"]
+        assert any(idx.count("×") == 2 for idx in result.table.index)  # interação tripla
+
+    def test_factor3_without_factor2_raises(self):
+        df = pd.DataFrame({"A": ["a", "b"] * 6, "C": ["c", "d"] * 6, "y": range(12)})
+        with pytest.raises(ValueError):
+            fit_experimental_anova(df, response="y", treatment="A", factor3="C")
+
+    def test_junk_factor_levels_are_dropped(self):
+        df = _crd_dataset()
+        # injeta linhas com nível-lixo no tratamento; devem ser removidas.
+        junk = pd.DataFrame({"trat": [".", "NA", ""], "y": [99.0, 99.0, 99.0]})
+        dirty = pd.concat([df, junk], ignore_index=True)
+        result = fit_experimental_anova(dirty, response="y", treatment="trat")
+        assert result.n_obs == len(df)            # 3 linhas-lixo descartadas
+        assert result.table.loc["trat", "p_value"] < 0.001
+
     def test_raises_without_treatment_variation(self):
         df = pd.DataFrame({"trat": ["A"] * 6, "y": [1.0, 2, 3, 4, 5, 6]})
         with pytest.raises(ValueError):

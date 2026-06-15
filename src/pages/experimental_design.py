@@ -21,6 +21,7 @@ from src.components.dataset_controls import ensure_raw_dataframe, render_dataset
 from src.config.settings import PRIMARY_COLOR
 from src.i18n import t
 from src.stats_utils import (
+    clean_factor_levels,
     compare_means,
     correlation_analysis,
     fit_dose_response,
@@ -67,17 +68,19 @@ def _format_p(p: float) -> str:
 
 def _build_script(
     response: str, treatment: str, block: str | None, factor2: str | None,
-    formula: str, factor: str, method: str, alpha: float,
+    formula: str, factor: str, method: str, alpha: float, factor3: str | None = None,
 ) -> str:
     """Gera um script Python autossuficiente que reproduz a análise.
 
     Reusa a mesma estratégia da página: renomeia as colunas para identificadores
-    seguros (``y``, ``trat``, ``fator2``, ``bloco``) e aplica a fórmula patsy
-    literal — robusto a nomes com espaços/acentos no dataset original.
+    seguros (``y``, ``trat``, ``fator2``, ``fator3``, ``bloco``) e aplica a
+    fórmula patsy literal — robusto a nomes com espaços/acentos no dataset.
     """
     rename = {response: "y", treatment: "trat"}
     if factor2:
         rename[factor2] = "fator2"
+    if factor3:
+        rename[factor3] = "fator3"
     if block:
         rename[block] = "bloco"
     cat_internal = [v for k, v in rename.items() if v != "y"]
@@ -109,6 +112,7 @@ Mapeamento de colunas:
   resposta   = {response!r}  -> y
   tratamento = {treatment!r}  -> trat{f"""
   2º fator   = {factor2!r}  -> fator2""" if factor2 else ""}{f"""
+  3º fator   = {factor3!r}  -> fator3""" if factor3 else ""}{f"""
   bloco      = {block!r}  -> bloco""" if block else ""}
 
 Edite à vontade para novas análises ou melhoramentos.
@@ -295,12 +299,13 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
 def _render_reproducibility_tab(
     result, df_clean: pd.DataFrame, response: str, treatment: str,
     block: str | None, factor2: str | None, factor: str, method: str,
+    factor3: str | None = None,
 ) -> None:
     st.markdown(f"#### {t('exp.code.title')}")
     st.caption(t("exp.code.caption"))
 
     script = _build_script(
-        response, treatment, block, factor2, result.formula, factor, method, 0.05
+        response, treatment, block, factor2, result.formula, factor, method, 0.05, factor3
     )
     # Trecho essencial: do bloco "# 2. ANOVA" até antes dos pressupostos.
     lines = script.splitlines()
@@ -372,6 +377,15 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
     block = None if block_choice == none_label else block_choice
     factor2 = None if factor2_choice == none_label else factor2_choice
 
+    factor3 = None
+    if factor2:
+        factor3_choice = st.selectbox(
+            t("exp.config.factor3"),
+            options=[none_label] + [c for c in other_cats if c != factor2],
+            key="exp_factor3", help=t("exp.config.factor3_help"),
+        )
+        factor3 = None if factor3_choice == none_label else factor3_choice
+
     with st.expander(t("exp.config.latin_square"), expanded=False):
         st.caption(t("exp.config.latin_help"))
         cl1, cl2 = st.columns(2)
@@ -381,7 +395,7 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
     column = None if col_choice == none_label else col_choice
 
     if row and column:
-        block = factor2 = None  # quadrado latino tem prioridade
+        block = factor2 = factor3 = None  # quadrado latino tem prioridade
         if row == column:
             st.error(t("exp.config.row_col_clash"))
             return
@@ -389,9 +403,10 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         st.error(t("exp.config.block_factor_clash"))
         return
 
-    used = [treatment] + [c for c in (factor2, block, row, column) if c]
+    used = [treatment] + [c for c in (factor2, factor3, block, row, column) if c]
     cols = [response] + used
     df_clean = df[cols].dropna().copy()
+    df_clean = clean_factor_levels(df_clean, used)
     for c in used:
         df_clean[c] = df_clean[c].astype(str)
 
@@ -403,7 +418,9 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         return
 
     try:
-        result = fit_experimental_anova(df_clean, response, treatment, block, factor2, row, column)
+        result = fit_experimental_anova(
+            df_clean, response, treatment, block, factor2, row, column, factor3
+        )
     except ValueError as exc:
         st.error(t("exp.error_fit", msg=str(exc)))
         return
@@ -426,7 +443,7 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         factor = st.session_state.get("exp_compare_factor", treatment)
         method = st.session_state.get("exp_compare_method", "tukey")
         _render_reproducibility_tab(
-            result, df_clean, response, treatment, block, factor2, factor, method
+            result, df_clean, response, treatment, block, factor2, factor, method, factor3
         )
 
 

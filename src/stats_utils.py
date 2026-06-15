@@ -203,6 +203,26 @@ class ExperimentalAnova:
     factor_terms: list[str] = field(default_factory=list)
 
 
+# Tokens que representam ausência/lixo num fator categórico e devem ser tratados
+# como dados faltantes (ex.: "." e "NA" na coluna sex do Palmer Penguins).
+_JUNK_LEVELS = {"", ".", "na", "n/a", "nan", "null", "none", "?", "-", "--"}
+
+
+def clean_factor_levels(df: pd.DataFrame, factor_cols: Sequence[str]) -> pd.DataFrame:
+    """Remove linhas cujos fatores contêm níveis-lixo (``"."``, ``"NA"``, vazio…).
+
+    Compara em minúsculas e com espaços removidos. Não altera colunas numéricas
+    (NaN nelas já é tratado por ``dropna`` nas funções de análise).
+    """
+    work = df.copy()
+    mask = pd.Series(True, index=work.index)
+    for col in factor_cols:
+        if col in work.columns:
+            normalized = work[col].astype(str).str.strip().str.lower()
+            mask &= ~normalized.isin(_JUNK_LEVELS)
+    return work[mask]
+
+
 def _term_label(term: str, names: dict[str, str]) -> str:
     """Converte um termo patsy (ex.: ``C(trat):C(fator2)``) em rótulo legível."""
     parts = term.split(":")
@@ -223,6 +243,7 @@ def fit_experimental_anova(
     factor2: Optional[str] = None,
     row: Optional[str] = None,
     column: Optional[str] = None,
+    factor3: Optional[str] = None,
 ) -> ExperimentalAnova:
     """Ajusta a ANOVA apropriada ao delineamento e devolve o quadro completo.
 
@@ -231,12 +252,15 @@ def fit_experimental_anova(
     - apenas ``treatment``                         → DIC  (``y ~ trat``)
     - ``treatment`` + ``block``                    → DBC  (``y ~ trat + bloco``)
     - ``treatment`` + ``factor2``                  → Fatorial (``y ~ trat * fator2``)
-    - ``treatment`` + ``factor2`` + ``block``      → Fatorial+Bloco
+    - ``treatment`` + ``factor2`` + ``factor3``    → Fatorial de 3 fatores
+      (``y ~ trat * fator2 * fator3``, com todas as interações)
+    - qualquer fatorial + ``block``                → Fatorial+Bloco
     - ``treatment`` + ``row`` + ``column``         → Quadrado Latino
       (``y ~ trat + linha + coluna`` — dois controles locais ortogonais)
 
     Quando ``row`` e ``column`` são informados, o delineamento é Quadrado Latino
-    e ``block``/``factor2`` são ignorados.
+    e ``block``/``factor2``/``factor3`` são ignorados. Linhas com níveis-lixo nos
+    fatores (``"."``, ``"NA"``, vazio…) são descartadas.
 
     As colunas categóricas são convertidas para texto e renomeadas para
     identificadores seguros antes do ajuste, evitando que nomes com espaços ou
@@ -251,17 +275,20 @@ def fit_experimental_anova(
 
     latin_square = bool(row and column)
     if latin_square:
-        block = factor2 = None
+        block = factor2 = factor3 = None
+    if factor3 and not factor2:
+        raise ValueError("O 3º fator exige um 2º fator definido.")
 
-    cols = [response, treatment]
-    for extra in (factor2, block, row, column):
-        if extra:
-            cols.append(extra)
+    factor_cols = [treatment] + [f for f in (factor2, block, row, column, factor3) if f]
+    cols = [response] + factor_cols
     work = df[cols].dropna().copy()
+    work = clean_factor_levels(work, factor_cols)
 
     rename = {response: "y", treatment: "trat"}
     if factor2:
         rename[factor2] = "fator2"
+    if factor3:
+        rename[factor3] = "fator3"
     if block:
         rename[block] = "bloco"
     if row:
@@ -270,7 +297,7 @@ def fit_experimental_anova(
         rename[column] = "coluna"
     work = work.rename(columns=rename)
 
-    for cat in ("trat", "fator2", "bloco", "linha", "coluna"):
+    for cat in ("trat", "fator2", "fator3", "bloco", "linha", "coluna"):
         if cat in work.columns:
             work[cat] = work[cat].astype(str)
 
@@ -280,18 +307,22 @@ def fit_experimental_anova(
     if latin_square:
         formula = "y ~ C(trat) + C(linha) + C(coluna)"
         design = "Quadrado Latino"
-    elif factor2 and block:
-        formula = "y ~ C(trat) * C(fator2) + C(bloco)"
-        design = "Fatorial+Bloco"
-    elif factor2:
-        formula = "y ~ C(trat) * C(fator2)"
-        design = "Fatorial"
-    elif block:
-        formula = "y ~ C(trat) + C(bloco)"
-        design = "DBC"
     else:
-        formula = "y ~ C(trat)"
-        design = "DIC"
+        treatment_terms = ["C(trat)"]
+        if factor2:
+            treatment_terms.append("C(fator2)")
+        if factor3:
+            treatment_terms.append("C(fator3)")
+        if len(treatment_terms) > 1:
+            rhs = " * ".join(treatment_terms)  # fatorial completo (todas as interações)
+            design = "Fatorial"
+        else:
+            rhs = "C(trat)"
+            design = "DIC"
+        if block:
+            rhs += " + C(bloco)"
+            design = "DBC" if design == "DIC" else "Fatorial+Bloco"
+        formula = "y ~ " + rhs
 
     model = ols(formula, data=work).fit()
     aov = sm.stats.anova_lm(model, typ=2)
@@ -307,8 +338,8 @@ def fit_experimental_anova(
     cv_percent = float(sqrt(ms_error) / abs(grand_mean) * 100.0)
 
     names = {
-        "trat": treatment, "fator2": factor2 or "", "bloco": block or "",
-        "linha": row or "", "coluna": column or "",
+        "trat": treatment, "fator2": factor2 or "", "fator3": factor3 or "",
+        "bloco": block or "", "linha": row or "", "coluna": column or "",
     }
     table = pd.DataFrame({
         "df": aov["df"].astype(float),
@@ -322,7 +353,7 @@ def fit_experimental_anova(
         for term in aov.index
     ]
 
-    factor_terms = [treatment] + ([factor2] if factor2 else [])
+    factor_terms = [treatment] + [f for f in (factor2, factor3) if f]
 
     return ExperimentalAnova(
         design=design,
@@ -832,6 +863,7 @@ __all__ = [
     "DoseResponse",
     "MEAN_COMPARISON_METHODS",
     "audit_pair_confounding",
+    "clean_factor_levels",
     "compare_means",
     "correlation_analysis",
     "cramers_v",

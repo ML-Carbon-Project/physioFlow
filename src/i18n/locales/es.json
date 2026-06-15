@@ -668,5 +668,7 @@
   "upload.delimiter.space": "Espacio(s)",
   "exp.config.numeric_as_factor": "Tratar como factor (columnas numéricas)",
   "exp.config.numeric_as_factor_help": "Columnas numéricas que codifican factores (bloque, repetición, fila…). Las seleccionadas se vuelven factores y salen de la lista de respuesta.",
-  "exp.config.no_response_left": "No quedó ninguna columna numérica como variable respuesta. Deseleccione una en 'Tratar como factor'."
+  "exp.config.no_response_left": "No quedó ninguna columna numérica como variable respuesta. Deseleccione una en 'Tratar como factor'.",
+  "exp.config.factor3": "3º factor (opcional, factorial triple)",
+  "exp.config.factor3_help": "Agregue un tercer factor para análisis factorial de 3 factores (todas las interacciones). Requiere el 2º factor."
 }
