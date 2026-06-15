@@ -30,6 +30,9 @@ from src.stats_utils import (
     partial_correlation,
 )
 
+# Cardinalidade máxima para sugerir uma coluna numérica como fator por padrão.
+_MAX_FACTOR_LEVELS = 20
+
 _DESIGN_LABEL_KEYS = {
     "DIC": "exp.design.dic",
     "DBC": "exp.design.dbc",
@@ -328,18 +331,34 @@ def _render_reproducibility_tab(
 
 
 def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: list[str]) -> None:
-    if not cat_cols:
-        st.warning(t("exp.no_cat"))
-        return
-
     st.markdown(f"#### {t('exp.config.title')}")
     st.caption(t("exp.config.caption"))
     none_label = t("common.none")
 
+    # Fatores codificados como número (bloco/repetição 1,2,3…) são comuns em
+    # dados de campo. Permite promover colunas numéricas a fator; por padrão,
+    # sugere as de baixa cardinalidade.
+    low_card = [c for c in numeric_cols if df[c].nunique(dropna=True) <= _MAX_FACTOR_LEVELS]
+    as_factor = st.multiselect(
+        t("exp.config.numeric_as_factor"),
+        options=numeric_cols, default=low_card,
+        help=t("exp.config.numeric_as_factor_help"),
+        key="exp_as_factor",
+    )
+    factor_cols = cat_cols + [c for c in as_factor]
+    response_cols = [c for c in numeric_cols if c not in as_factor]
+
+    if not factor_cols:
+        st.warning(t("exp.no_cat"))
+        return
+    if not response_cols:
+        st.warning(t("exp.config.no_response_left"))
+        return
+
     c1, c2 = st.columns(2)
-    response = c1.selectbox(t("exp.config.response"), options=numeric_cols, key="exp_response")
-    treatment = c2.selectbox(t("exp.config.treatment"), options=cat_cols, key="exp_treatment")
-    other_cats = [c for c in cat_cols if c != treatment]
+    response = c1.selectbox(t("exp.config.response"), options=response_cols, key="exp_response")
+    treatment = c2.selectbox(t("exp.config.treatment"), options=factor_cols, key="exp_treatment")
+    other_cats = [c for c in factor_cols if c != treatment]
 
     c3, c4 = st.columns(2)
     block_choice = c3.selectbox(

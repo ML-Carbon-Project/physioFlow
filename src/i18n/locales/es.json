@@ -48,7 +48,7 @@
   "auth.error.missing_credentials_env": "Auth habilitada pero `supabase.url` y `supabase.publishable_key` no están configurados.",
   "auth.error.supabase_not_installed": "Dependencia `supabase` no instalada. Ejecute `pip install -r requirements.txt`.",
   "upload.title": "Carga de Archivo",
-  "upload.uploader_label": "Suba su archivo CSV o Excel",
+  "upload.uploader_label": "Suba su CSV, TXT/TSV o Excel",
   "upload.info_send_file": "Suba un archivo para continuar.",
   "upload.error_inspect": "No se pudo inspeccionar el archivo cargado: {error}",
   "upload.select_sheet": "Seleccione la hoja del Excel",
@@ -659,5 +659,14 @@
   "exp.corr.partial_raw": "r bruto (X,Y)",
   "exp.corr.partial_r": "r parcial",
   "exp.corr.partial_p": "valor-p parcial",
-  "exp.corr.partial_pick_covar": "Elija al menos una covariable de control."
+  "exp.corr.partial_pick_covar": "Elija al menos una covariable de control.",
+  "upload.select_delimiter": "Delimitador de columnas",
+  "upload.delimiter.auto": "Automático (detectar)",
+  "upload.delimiter.comma": "Coma ( , )",
+  "upload.delimiter.semicolon": "Punto y coma ( ; )",
+  "upload.delimiter.tab": "Tabulación ( Tab )",
+  "upload.delimiter.space": "Espacio(s)",
+  "exp.config.numeric_as_factor": "Tratar como factor (columnas numéricas)",
+  "exp.config.numeric_as_factor_help": "Columnas numéricas que codifican factores (bloque, repetición, fila…). Las seleccionadas se vuelven factores y salen de la lista de respuesta.",
+  "exp.config.no_response_left": "No quedó ninguna columna numérica como variable respuesta. Deseleccione una en 'Tratar como factor'."
 }

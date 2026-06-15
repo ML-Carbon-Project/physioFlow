@@ -48,7 +48,7 @@
   "auth.error.missing_credentials_env": "Auth is enabled but `supabase.url` and `supabase.publishable_key` are not configured.",
   "auth.error.supabase_not_installed": "`supabase` dependency missing. Run `pip install -r requirements.txt`.",
   "upload.title": "File Upload",
-  "upload.uploader_label": "Upload your CSV or Excel file",
+  "upload.uploader_label": "Upload your CSV, TXT/TSV or Excel",
   "upload.info_send_file": "Upload a file to continue.",
   "upload.error_inspect": "Could not inspect the uploaded file: {error}",
   "upload.select_sheet": "Select the Excel sheet",
@@ -659,5 +659,14 @@
   "exp.corr.partial_raw": "Raw r (X,Y)",
   "exp.corr.partial_r": "Partial r",
   "exp.corr.partial_p": "Partial p-value",
-  "exp.corr.partial_pick_covar": "Choose at least one control covariate."
+  "exp.corr.partial_pick_covar": "Choose at least one control covariate.",
+  "upload.select_delimiter": "Column delimiter",
+  "upload.delimiter.auto": "Automatic (detect)",
+  "upload.delimiter.comma": "Comma ( , )",
+  "upload.delimiter.semicolon": "Semicolon ( ; )",
+  "upload.delimiter.tab": "Tab",
+  "upload.delimiter.space": "Space(s)",
+  "exp.config.numeric_as_factor": "Treat as factor (numeric columns)",
+  "exp.config.numeric_as_factor_help": "Numeric columns that encode factors (block, replicate, row…). Selected ones become factors and leave the response list.",
+  "exp.config.no_response_left": "No numeric column left as the response variable. Deselect one in 'Treat as factor'."
 }
