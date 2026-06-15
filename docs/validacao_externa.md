@@ -14,6 +14,24 @@ travam estes números estão em `tests/test_sample_datasets.py`.
 > clássica (R/Rbio/seaborn), não contra a saída espacial. O caso mais forte de
 > validação independente é o **Palmer Penguins**, fartamente documentado.
 
+## 0. Cross-validação contra o R (`aov`, `car::Anova` tipo II, `emmeans`)
+
+Os delineamentos foram conferidos **número a número** contra o R (rodado
+localmente; o Rbio é só-Windows, mas o R base + CRAN estão disponíveis). Usa-se
+`car::Anova(type=2)` para casar com a soma de quadrados Tipo II do statsmodels.
+
+| Análise | Termo | PhysioFlow | R |
+|---|---|---|---|
+| Split-plot (oats) | gen / nitro / gen×nitro F | 1,485 / 37,686 / 0,303 | idem |
+| ANCOVA (penguins) | flipper(cov) F / species F / slope | 175,687 / 18,393 / 40,7054 | idem |
+| ANCOVA — médias ajustadas | Adelie/Chinstrap/Gentoo | 4147 / 3940 / 4414 | idem (`emmeans`) |
+| Fatorial tipo II (penguins) | species / sex / interação F | 749,0 / 387,5 / 8,757 | idem |
+| DIC uma-via (penguins) | flipper ~ species F | 594,80 | 594,80 |
+| Scott-Knott | partição (3 datasets) | = pacote `ScottKnott` | = (§3b) |
+
+Travado em `tests/test_sample_datasets.py` (valores de referência do R fixados,
+sem depender do R em CI).
+
 ## 1. Palmer Penguins (`penguins.csv`)
 
 Dataset clássico (Gorman et al., Palmer Station LTER), 344 registros, 3 espécies.

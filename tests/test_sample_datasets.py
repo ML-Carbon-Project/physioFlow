@@ -113,15 +113,33 @@ class TestPenguins:
                                 df.loc[df["flipper_length_mm"].notna(), "body_mass_g"])
         assert r == pytest.approx(0.871, abs=0.01)    # ~0,87 publicado
 
-    def test_factorial_species_by_sex_cleans_junk_levels(self):
-        # sex tem "." e vazios; clean_factor_levels (no fit) deve descartá-los,
-        # restando só MALE/FEMALE → fatorial 3×2 válido.
+    def test_factorial_species_by_sex_matches_r_type2(self):
+        # sex tem "." e vazios; clean_factor_levels descarta-os → fatorial 3×2.
+        # F de referência: car::Anova(type=2) no R (mesmo tipo de SQ que usamos).
         df = _load("penguins.csv")
         res = fit_experimental_anova(df, response="body_mass_g", treatment="species", factor2="sex")
         assert res.design == "Fatorial"
-        assert res.table.loc["species", "p_value"] < 0.05
-        # apenas 2 níveis de sexo entraram (333 = 168 MALE + 165 FEMALE)
-        assert res.n_obs == 333
+        assert res.n_obs == 333                       # 168 MALE + 165 FEMALE
+        assert res.table.loc["species", "F"] == pytest.approx(749.016, abs=0.5)
+        assert res.table.loc["sex", "F"] == pytest.approx(387.460, abs=0.5)
+        inter = next(i for i in res.table.index if "×" in i)
+        assert res.table.loc[inter, "F"] == pytest.approx(8.757, abs=0.05)
+
+    def test_ancova_flipper_covariate_matches_r(self):
+        # ANCOVA body_mass ~ flipper(cov) + species. Referência: car::Anova(type=2)
+        # + emmeans (médias ajustadas) no R.
+        df = _load("penguins.csv")
+        res = fit_experimental_anova(
+            df, response="body_mass_g", treatment="species", covariate="flipper_length_mm"
+        )
+        assert res.covariate == "flipper_length_mm"
+        assert res.covariate_slope == pytest.approx(40.7054, abs=0.01)
+        assert res.table.loc["flipper_length_mm", "F"] == pytest.approx(175.687, abs=0.5)
+        assert res.table.loc["species", "F"] == pytest.approx(18.393, abs=0.05)
+        # médias ajustadas batem com emmeans
+        assert res.adjusted_means["Adelie"] == pytest.approx(4147, abs=2)
+        assert res.adjusted_means["Chinstrap"] == pytest.approx(3940, abs=2)
+        assert res.adjusted_means["Gentoo"] == pytest.approx(4414, abs=2)
 
 
 class TestYatesOatsSplitPlot:
