@@ -35,6 +35,30 @@ from src.stats_utils import (
 # Cardinalidade máxima para sugerir uma coluna numérica como fator por padrão.
 _MAX_FACTOR_LEVELS = 20
 
+# Acima disto, a comparação de médias por letras fica ilegível — avisamos.
+_MAX_COMPARISON_LEVELS = 20
+
+# Nomes típicos de colunas-índice (não fazem sentido como variável-resposta).
+_INDEX_LIKE_NAMES = {"rownames", "rowname", "index", "unnamed: 0", "id", "obs"}
+
+
+def _is_index_like(df: pd.DataFrame, col: str) -> bool:
+    """Heurística: coluna de índice/ID (nome conhecido ou inteiros 0..n-1/1..n)."""
+    if str(col).strip().lower() in _INDEX_LIKE_NAMES:
+        return True
+    s = df[col].dropna()
+    if len(s) == len(df) and pd.api.types.is_integer_dtype(s) and s.nunique() == len(s):
+        lo, hi = int(s.min()), int(s.max())
+        return hi - lo + 1 == len(s)  # sequência consecutiva
+    return False
+
+
+def _response_order(df: pd.DataFrame, numeric_cols: list[str]) -> list[str]:
+    """Reordena colunas numéricas pondo as 'tipo índice' no fim (nunca como padrão)."""
+    primary = [c for c in numeric_cols if not _is_index_like(df, c)]
+    index_like = [c for c in numeric_cols if _is_index_like(df, c)]
+    return primary + index_like
+
 _DESIGN_LABEL_KEYS = {
     "DIC": "exp.design.dic",
     "DBC": "exp.design.dbc",
@@ -264,6 +288,10 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
     # ANCOVA: compara médias AJUSTADAS pela covariável (só no fator tratamento).
     use_adjusted = bool(result.adjusted_means) and factor == result.factor_terms[0]
     override = result.adjusted_means if use_adjusted else None
+    n_levels = df_clean[factor].nunique()
+    if n_levels > _MAX_COMPARISON_LEVELS:
+        st.warning(t("exp.compare.too_many_levels", n=n_levels, max=_MAX_COMPARISON_LEVELS))
+
     table = compare_means(
         df_clean, response, factor, result.ms_error, result.df_error,
         method=method_label, means_override=override,
@@ -366,7 +394,7 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         key="exp_as_factor",
     )
     factor_cols = cat_cols + [c for c in as_factor]
-    response_cols = [c for c in numeric_cols if c not in as_factor]
+    response_cols = _response_order(df, [c for c in numeric_cols if c not in as_factor])
 
     if not factor_cols:
         st.warning(t("exp.no_cat"))
@@ -535,6 +563,7 @@ def _render_dose_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:
         st.warning(t("exp.dose.need_numeric"))
         return
 
+    numeric_cols = _response_order(df, numeric_cols)
     c1, c2, c3 = st.columns(3)
     dose = c1.selectbox(t("exp.dose.dose_col"), options=numeric_cols, key="exp_dose_x")
     y_options = [c for c in numeric_cols if c != dose]
@@ -583,9 +612,10 @@ def _render_correlation_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:
         format_func=lambda m: "Pearson" if m == "pearson" else "Spearman",
         horizontal=True, key="exp_corr_method",
     )
-    default_cols = numeric_cols[: min(8, len(numeric_cols))]
+    ordered = _response_order(df, numeric_cols)
+    default_cols = ordered[: min(8, len(ordered))]
     selected = st.multiselect(
-        t("exp.corr.vars"), options=numeric_cols, default=default_cols, key="exp_corr_vars"
+        t("exp.corr.vars"), options=ordered, default=default_cols, key="exp_corr_vars"
     )
     if len(selected) < 2:
         st.info(t("exp.corr.select_two"))

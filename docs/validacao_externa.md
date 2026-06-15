@@ -5,8 +5,8 @@ PhysioFlow (página **Estatística Experimental**) e resultados **publicados**
 para datasets clássicos de domínio público. Serve como evidência de corretude
 para o software paper e como roteiro de re-validação.
 
-Os dados ficam em `data/sample/` e os testes automatizados que travam estes
-números estão em `tests/test_sample_datasets.py`.
+Os dados públicos ficam em `data/sample/test/` e os testes automatizados que
+travam estes números estão em `tests/test_sample_datasets.py`.
 
 > **Natureza da validação.** Vários datasets vêm do *ASReml Cookbook*, cujos
 > resultados "oficiais" usam **modelos mistos/espaciais (REML)**. A ferramenta
@@ -57,15 +57,26 @@ a esses valores; eles foram reproduzidos do zero).
 
 CV(a) = 23,59%, CV(b) = 12,80%. **Coincidência decimal** nos três F.
 
-## 4. Demais datasets (ASReml Cookbook)
+## 4. Soja multiambiente (`australia.soybean.txt`)
+
+Ensaio com 8 ambientes, 58 genótipos e 6 variáveis. Usado para a validação de
+**correlação** com um caso agronômico clássico — o *trade-off* proteína × óleo:
+
+| Correlação | PhysioFlow | Cruzada (`scipy`) |
+|---|---|---|
+| protein × oil (Pearson) | **−0,758** | −0,758 |
+
+## 5. Demais datasets
 
 | Arquivo | Uso na ferramenta | Status |
 |---|---|---|
-| `RATPUP.txt` | DIC, Fatorial (`treatment × sex`) e **ANCOVA** (covariável `lsize`: inclinação ≈ −0,08, p<0,001 — ninhada maior → filhote mais leve) | ✅ |
-| `SALMON.txt` | Correlação (cruzada vs `scipy.pearsonr`, r≈−0,82) e regressão | ✅ |
 | `BESAG_ELBATAN.txt` | DBC com bloco numérico (`col`), gl_erro = 98, p(gen) ≈ 0,0066 | ✅ |
-| `DURBAN_ROWCOL.txt` | DBC (gen+rep), 272 tratamentos; análise espacial → fora do escopo | △ |
-| `SPRING_BARLEY.txt` | Ensaio row-column, 478 linhagens; análise espacial/mista | △ (Lote 3) |
+| `SPRING_BARLEY.txt` | Ensaio row-column, 478 linhagens; análise espacial/mista | △ (futuro) |
+
+> Cobertura externa por análise: **DIC/Tukey/correlação** → Penguins;
+> **split-plot** → Oats (Yates); **DBC com bloco numérico** → BESAG;
+> **correlação agronômica** → soja. ANCOVA e fatorial de 3 fatores são cobertos
+> por testes herméticos em `tests/test_stats_utils.py`.
 
 ## Como reexecutar a validação
 

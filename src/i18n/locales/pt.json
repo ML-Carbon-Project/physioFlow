@@ -719,5 +719,6 @@
   "modeling.cv_kind": "Tipo de validação cruzada",
   "modeling.cv_kind.stratified": "StratifiedKFold (mantém proporção das classes)",
   "modeling.cv_kind.kfold": "KFold (aleatório)",
-  "modeling.cv_kind_help": "StratifiedKFold preserva a proporção de cada classe em todas as dobras — recomendado em classificação, sobretudo com classes desbalanceadas. KFold divide aleatoriamente."
+  "modeling.cv_kind_help": "StratifiedKFold preserva a proporção de cada classe em todas as dobras — recomendado em classificação, sobretudo com classes desbalanceadas. KFold divide aleatoriamente.",
+  "exp.compare.too_many_levels": "O fator tem {n} níveis (> {max}): as letras de comparação ficam difíceis de ler. Considere filtrar os tratamentos."
 }
