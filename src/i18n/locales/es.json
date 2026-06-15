@@ -670,5 +670,10 @@
   "exp.config.numeric_as_factor_help": "Columnas numéricas que codifican factores (bloque, repetición, fila…). Las seleccionadas se vuelven factores y salen de la lista de respuesta.",
   "exp.config.no_response_left": "No quedó ninguna columna numérica como variable respuesta. Deseleccione una en 'Tratar como factor'.",
   "exp.config.factor3": "3º factor (opcional, factorial triple)",
-  "exp.config.factor3_help": "Agregue un tercer factor para análisis factorial de 3 factores (todas las interacciones). Requiere el 2º factor."
+  "exp.config.factor3_help": "Agregue un tercer factor para análisis factorial de 3 factores (todas las interacciones). Requiere el 2º factor.",
+  "exp.config.covariate": "Covariable (ANCOVA, opcional)",
+  "exp.config.covariate_help": "Variable numérica continua para ajustar la respuesta (ej.: peso inicial, tamaño de camada). Las medias pasan a ser ajustadas (medias marginales).",
+  "exp.anova.covariate_info": "Covariable **{cov}**: pendiente = {slope} (p = {p}). Las medias de tratamiento abajo están ajustadas por ella.",
+  "exp.compare.adjusted_note": "Medias ajustadas por la covariable {cov} (ANCOVA), comparadas usando el error del modelo ajustado.",
+  "exp.config.covariate_clash": "La covariable no puede usarse también como factor/bloque."
 }

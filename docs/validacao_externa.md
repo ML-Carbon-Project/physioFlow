@@ -46,7 +46,7 @@ Exercita o **fatorial de três fatores** (todas as interações).
 
 | Arquivo | Uso na ferramenta | Status |
 |---|---|---|
-| `RATPUP.txt` | DIC e Fatorial (`treatment × sex`); `lsize` → futura ANCOVA | ✅ |
+| `RATPUP.txt` | DIC, Fatorial (`treatment × sex`) e **ANCOVA** (covariável `lsize`: inclinação ≈ −0,08, p<0,001 — ninhada maior → filhote mais leve) | ✅ |
 | `SALMON.txt` | Correlação (cruzada vs `scipy.pearsonr`, r≈−0,82) e regressão | ✅ |
 | `BESAG_ELBATAN.txt` | DBC com bloco numérico (`col`), gl_erro = 98, p(gen) ≈ 0,0066 | ✅ |
 | `DURBAN_ROWCOL.txt` | DBC (gen+rep), 272 tratamentos; análise espacial → fora do escopo | △ |

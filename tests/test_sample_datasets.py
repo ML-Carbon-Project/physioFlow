@@ -68,7 +68,19 @@ class TestRatpup:
         assert res.design == "Fatorial"
         assert any("×" in idx for idx in res.table.index)   # termo de interação presente
         assert res.table.loc["treatment", "p_value"] < 0.05
-        assert 5.0 < res.cv_percent < 15.0                  # CV experimental plausível
+        assert 5.0 < res.cv_percent < 15.0
+
+    def test_ancova_with_litter_size_covariate(self):
+        # lsize (tamanho da ninhada) é a covariável clássica deste dataset:
+        # ninhadas maiores → filhotes mais leves. Ajusta os pesos por tratamento.
+        df = _load("RATPUP.txt")
+        res = fit_experimental_anova(
+            df, response="weight", treatment="treatment", covariate="lsize"
+        )
+        assert res.covariate == "lsize"
+        assert res.covariate_pvalue < 0.001        # tamanho da ninhada importa muito
+        assert res.covariate_slope < 0             # ninhada maior → peso menor
+        assert res.adjusted_means is not None                  # CV experimental plausível
 
 
 class TestSalmon:

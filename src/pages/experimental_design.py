@@ -174,6 +174,14 @@ def _render_anova_tab(result, df_clean: pd.DataFrame) -> None:
         use_container_width=True,
     )
 
+    if result.covariate:
+        st.caption(t(
+            "exp.anova.covariate_info",
+            cov=result.covariate,
+            slope=f"{result.covariate_slope:.4g}",
+            p=_format_p(result.covariate_pvalue),
+        ))
+
     # Interpretação automática dos termos de tratamento.
     msgs = []
     for term in result.factor_terms:
@@ -252,12 +260,18 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
         key="exp_compare_method",
     )
 
+    # ANCOVA: compara médias AJUSTADAS pela covariável (só no fator tratamento).
+    use_adjusted = bool(result.adjusted_means) and factor == result.factor_terms[0]
+    override = result.adjusted_means if use_adjusted else None
     table = compare_means(
-        df_clean, response, factor, result.ms_error, result.df_error, method=method_label
+        df_clean, response, factor, result.ms_error, result.df_error,
+        method=method_label, means_override=override,
     )
     if table.empty:
         st.info(t("exp.compare.no_data"))
         return method_label
+    if use_adjusted:
+        st.caption(t("exp.compare.adjusted_note", cov=result.covariate))
 
     show = table.rename(columns={
         "group": t("exp.compare.col.group"),
@@ -386,6 +400,15 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         )
         factor3 = None if factor3_choice == none_label else factor3_choice
 
+    # Covariável: qualquer numérica (exceto a resposta), mesmo que numérica
+    # tenha sido promovida a fator — o que importa é não usá-la em dois papéis.
+    cov_options = [c for c in numeric_cols if c != response]
+    covariate_choice = st.selectbox(
+        t("exp.config.covariate"), options=[none_label] + cov_options,
+        key="exp_covariate", help=t("exp.config.covariate_help"),
+    )
+    covariate = None if covariate_choice == none_label else covariate_choice
+
     with st.expander(t("exp.config.latin_square"), expanded=False):
         st.caption(t("exp.config.latin_help"))
         cl1, cl2 = st.columns(2)
@@ -395,7 +418,7 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
     column = None if col_choice == none_label else col_choice
 
     if row and column:
-        block = factor2 = factor3 = None  # quadrado latino tem prioridade
+        block = factor2 = factor3 = covariate = None  # quadrado latino tem prioridade
         if row == column:
             st.error(t("exp.config.row_col_clash"))
             return
@@ -404,7 +427,10 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         return
 
     used = [treatment] + [c for c in (factor2, factor3, block, row, column) if c]
-    cols = [response] + used
+    if covariate and covariate in used:
+        st.error(t("exp.config.covariate_clash"))
+        return
+    cols = [response] + used + ([covariate] if covariate else [])
     df_clean = df[cols].dropna().copy()
     df_clean = clean_factor_levels(df_clean, used)
     for c in used:
@@ -419,7 +445,7 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
 
     try:
         result = fit_experimental_anova(
-            df_clean, response, treatment, block, factor2, row, column, factor3
+            df_clean, response, treatment, block, factor2, row, column, factor3, covariate
         )
     except ValueError as exc:
         st.error(t("exp.error_fit", msg=str(exc)))

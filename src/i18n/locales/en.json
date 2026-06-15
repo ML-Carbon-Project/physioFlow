@@ -670,5 +670,10 @@
   "exp.config.numeric_as_factor_help": "Numeric columns that encode factors (block, replicate, row…). Selected ones become factors and leave the response list.",
   "exp.config.no_response_left": "No numeric column left as the response variable. Deselect one in 'Treat as factor'.",
   "exp.config.factor3": "3rd factor (optional, three-way factorial)",
-  "exp.config.factor3_help": "Add a third factor for a three-way factorial analysis (all interactions). Requires the 2nd factor."
+  "exp.config.factor3_help": "Add a third factor for a three-way factorial analysis (all interactions). Requires the 2nd factor.",
+  "exp.config.covariate": "Covariate (ANCOVA, optional)",
+  "exp.config.covariate_help": "Continuous numeric variable to adjust the response (e.g., initial weight, litter size). Means become adjusted (marginal means).",
+  "exp.anova.covariate_info": "Covariate **{cov}**: slope = {slope} (p = {p}). Treatment means below are adjusted for it.",
+  "exp.compare.adjusted_note": "Means adjusted for covariate {cov} (ANCOVA), compared using the fitted model's error.",
+  "exp.config.covariate_clash": "The covariate cannot also be used as a factor/block."
 }

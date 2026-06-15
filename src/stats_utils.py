@@ -201,6 +201,11 @@ class ExperimentalAnova:
     residuals: np.ndarray
     fitted: np.ndarray
     factor_terms: list[str] = field(default_factory=list)
+    # Campos de ANCOVA (preenchidos só quando há covariável):
+    covariate: Optional[str] = None
+    covariate_slope: Optional[float] = None
+    covariate_pvalue: Optional[float] = None
+    adjusted_means: Optional[dict[str, float]] = None
 
 
 # Tokens que representam ausência/lixo num fator categórico e devem ser tratados
@@ -244,6 +249,7 @@ def fit_experimental_anova(
     row: Optional[str] = None,
     column: Optional[str] = None,
     factor3: Optional[str] = None,
+    covariate: Optional[str] = None,
 ) -> ExperimentalAnova:
     """Ajusta a ANOVA apropriada ao delineamento e devolve o quadro completo.
 
@@ -275,12 +281,12 @@ def fit_experimental_anova(
 
     latin_square = bool(row and column)
     if latin_square:
-        block = factor2 = factor3 = None
+        block = factor2 = factor3 = covariate = None
     if factor3 and not factor2:
         raise ValueError("O 3º fator exige um 2º fator definido.")
 
     factor_cols = [treatment] + [f for f in (factor2, block, row, column, factor3) if f]
-    cols = [response] + factor_cols
+    cols = [response] + factor_cols + ([covariate] if covariate else [])
     work = df[cols].dropna().copy()
     work = clean_factor_levels(work, factor_cols)
 
@@ -295,6 +301,8 @@ def fit_experimental_anova(
         rename[row] = "linha"
     if column:
         rename[column] = "coluna"
+    if covariate:
+        rename[covariate] = "cov"
     work = work.rename(columns=rename)
 
     for cat in ("trat", "fator2", "fator3", "bloco", "linha", "coluna"):
@@ -322,6 +330,8 @@ def fit_experimental_anova(
         if block:
             rhs += " + C(bloco)"
             design = "DBC" if design == "DIC" else "Fatorial+Bloco"
+        if covariate:
+            rhs += " + cov"  # covariável contínua (ANCOVA)
         formula = "y ~ " + rhs
 
     model = ols(formula, data=work).fit()
@@ -340,6 +350,7 @@ def fit_experimental_anova(
     names = {
         "trat": treatment, "fator2": factor2 or "", "fator3": factor3 or "",
         "bloco": block or "", "linha": row or "", "coluna": column or "",
+        "cov": covariate or "",
     }
     table = pd.DataFrame({
         "df": aov["df"].astype(float),
@@ -355,6 +366,23 @@ def fit_experimental_anova(
 
     factor_terms = [treatment] + [f for f in (factor2, factor3) if f]
 
+    # ANCOVA: inclinação/significância da covariável e médias ajustadas.
+    covariate_slope = covariate_pvalue = None
+    adjusted_means = None
+    if covariate:
+        covariate_slope = float(model.params.get("cov", float("nan")))
+        if covariate in (table.index):
+            covariate_pvalue = float(table.loc[covariate, "p_value"])
+        # Médias ajustadas só no caso de fator único (sem fatorial), onde a
+        # fórmula clássica ȳ_i - b(x̄_i - x̄) é direta e inequívoca.
+        if not factor2:
+            cov_overall = float(work["cov"].mean())
+            adjusted_means = {}
+            for level, sub in work.groupby("trat"):
+                adjusted_means[str(level)] = float(
+                    sub["y"].mean() - covariate_slope * (sub["cov"].mean() - cov_overall)
+                )
+
     return ExperimentalAnova(
         design=design,
         formula=formula,
@@ -367,6 +395,10 @@ def fit_experimental_anova(
         residuals=model.resid.to_numpy(),
         fitted=model.fittedvalues.to_numpy(),
         factor_terms=factor_terms,
+        covariate=covariate,
+        covariate_slope=covariate_slope,
+        covariate_pvalue=covariate_pvalue,
+        adjusted_means=adjusted_means,
     )
 
 
@@ -690,16 +722,23 @@ def compare_means(
     df_error: float,
     method: str = "tukey",
     alpha: float = 0.05,
+    means_override: Optional[dict[str, float]] = None,
 ) -> pd.DataFrame:
     """Tabela de médias com letras de significância pelo método escolhido.
 
     ``method`` ∈ {``"tukey"``, ``"scott-knott"``, ``"duncan"``, ``"lsd"``,
     ``"scheffe"``}. Devolve a tabela de ``group_means`` acrescida da coluna
     ``group_letter``.
+
+    ``means_override`` substitui as médias brutas (ex.: médias ajustadas de
+    ANCOVA); ``n`` e ``std`` brutos são mantidos (usados só na visualização).
     """
     table = group_means(df, response, factor)
     if table.empty:
         return table
+    if means_override is not None:
+        table["mean"] = table["group"].map(means_override)
+        table = table.sort_values("mean", ascending=False).reset_index(drop=True)
     means = dict(zip(table["group"], table["mean"]))
     ns = dict(zip(table["group"], table["n"]))
     fn = MEAN_COMPARISON_METHODS.get(method, tukey_groups)

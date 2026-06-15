@@ -120,6 +120,25 @@ class TestFitExperimentalAnova:
         with pytest.raises(ValueError):
             fit_experimental_anova(df, response="y", treatment="A", factor3="C")
 
+    def test_ancova_with_covariate(self):
+        # y = base(trat) + 2*x + ruído; covariável x deve ser muito significativa
+        # e as médias ajustadas devem existir (caso de fator único).
+        rng = np.random.default_rng(42)
+        rows = []
+        for trat, base in (("A", 10.0), ("B", 14.0), ("C", 18.0)):
+            for _ in range(8):
+                x = rng.uniform(0, 10)
+                rows.append({"trat": trat, "x": x, "y": base + 2.0 * x + rng.normal(0, 0.5)})
+        df = pd.DataFrame(rows)
+        res = fit_experimental_anova(df, response="y", treatment="trat", covariate="x")
+        assert res.covariate == "x"
+        assert res.covariate_pvalue < 0.001
+        assert res.covariate_slope == pytest.approx(2.0, abs=0.2)
+        assert res.adjusted_means is not None
+        assert set(res.adjusted_means) == {"A", "B", "C"}
+        # "x" aparece como termo no quadro da ANOVA
+        assert "x" in res.table.index
+
     def test_junk_factor_levels_are_dropped(self):
         df = _crd_dataset()
         # injeta linhas com nível-lixo no tratamento; devem ser removidas.
