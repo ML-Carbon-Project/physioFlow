@@ -221,6 +221,8 @@ def fit_experimental_anova(
     treatment: str,
     block: Optional[str] = None,
     factor2: Optional[str] = None,
+    row: Optional[str] = None,
+    column: Optional[str] = None,
 ) -> ExperimentalAnova:
     """Ajusta a ANOVA apropriada ao delineamento e devolve o quadro completo.
 
@@ -230,6 +232,11 @@ def fit_experimental_anova(
     - ``treatment`` + ``block``                    → DBC  (``y ~ trat + bloco``)
     - ``treatment`` + ``factor2``                  → Fatorial (``y ~ trat * fator2``)
     - ``treatment`` + ``factor2`` + ``block``      → Fatorial+Bloco
+    - ``treatment`` + ``row`` + ``column``         → Quadrado Latino
+      (``y ~ trat + linha + coluna`` — dois controles locais ortogonais)
+
+    Quando ``row`` e ``column`` são informados, o delineamento é Quadrado Latino
+    e ``block``/``factor2`` são ignorados.
 
     As colunas categóricas são convertidas para texto e renomeadas para
     identificadores seguros antes do ajuste, evitando que nomes com espaços ou
@@ -242,11 +249,14 @@ def fit_experimental_anova(
     import statsmodels.api as sm
     from statsmodels.formula.api import ols
 
+    latin_square = bool(row and column)
+    if latin_square:
+        block = factor2 = None
+
     cols = [response, treatment]
-    if factor2:
-        cols.append(factor2)
-    if block:
-        cols.append(block)
+    for extra in (factor2, block, row, column):
+        if extra:
+            cols.append(extra)
     work = df[cols].dropna().copy()
 
     rename = {response: "y", treatment: "trat"}
@@ -254,16 +264,23 @@ def fit_experimental_anova(
         rename[factor2] = "fator2"
     if block:
         rename[block] = "bloco"
+    if row:
+        rename[row] = "linha"
+    if column:
+        rename[column] = "coluna"
     work = work.rename(columns=rename)
 
-    for cat in ("trat", "fator2", "bloco"):
+    for cat in ("trat", "fator2", "bloco", "linha", "coluna"):
         if cat in work.columns:
             work[cat] = work[cat].astype(str)
 
     if work["trat"].nunique() < 2:
         raise ValueError("O fator de tratamento precisa de pelo menos 2 níveis.")
 
-    if factor2 and block:
+    if latin_square:
+        formula = "y ~ C(trat) + C(linha) + C(coluna)"
+        design = "Quadrado Latino"
+    elif factor2 and block:
         formula = "y ~ C(trat) * C(fator2) + C(bloco)"
         design = "Fatorial+Bloco"
     elif factor2:
@@ -289,7 +306,10 @@ def fit_experimental_anova(
         raise ValueError("Média geral igual a zero: CV% indefinido.")
     cv_percent = float(sqrt(ms_error) / abs(grand_mean) * 100.0)
 
-    names = {"trat": treatment, "fator2": factor2 or "", "bloco": block or ""}
+    names = {
+        "trat": treatment, "fator2": factor2 or "", "bloco": block or "",
+        "linha": row or "", "coluna": column or "",
+    }
     table = pd.DataFrame({
         "df": aov["df"].astype(float),
         "sum_sq": aov["sum_sq"].astype(float),
@@ -657,18 +677,170 @@ def compare_means(
     return table
 
 
+# ---------------------------------------------------------------------------
+# Regressão de doses (fator quantitativo) — resposta a níveis crescentes de um
+# insumo (adubo, lâmina de irrigação, densidade etc.).
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DoseResponse:
+    """Ajuste polinomial da resposta a um fator quantitativo (dose)."""
+
+    degree: int
+    coef: list[float]            # [b0, b1, b2, ...] crescente em grau
+    r2: float
+    r2_adj: float
+    f_pvalue: float
+    top_term_pvalue: float       # significância do termo de maior grau
+    n: int
+    equation: str
+    x_grid: np.ndarray
+    y_grid: np.ndarray
+
+
+def fit_dose_response(
+    df: pd.DataFrame, dose: str, response: str, degree: int = 2
+) -> DoseResponse:
+    """Ajusta um polinômio de grau ``degree`` (1=linear, 2=quadrático, 3=cúbico).
+
+    Devolve coeficientes, R²/R² ajustado, significância global (F) e do termo de
+    maior grau, além de uma grade densa para traçar a curva.
+
+    Raises:
+        ValueError: se houver níveis de dose insuficientes para o grau pedido.
+    """
+    import statsmodels.api as sm
+
+    work = df[[dose, response]].dropna()
+    x = work[dose].astype(float).to_numpy()
+    y = work[response].astype(float).to_numpy()
+    if len(np.unique(x)) <= degree:
+        raise ValueError(
+            "Níveis de dose insuficientes para o grau do polinômio "
+            f"(precisa de mais de {degree} doses distintas)."
+        )
+
+    design = np.column_stack([x ** d for d in range(1, degree + 1)])
+    design = sm.add_constant(design)
+    model = sm.OLS(y, design).fit()
+    coef = [float(c) for c in model.params]
+
+    terms = [f"{coef[0]:.4g}"]
+    for d in range(1, degree + 1):
+        terms.append(f"{coef[d]:+.4g}·x" + (f"^{d}" if d > 1 else ""))
+    equation = "y = " + " ".join(terms)
+
+    x_grid = np.linspace(float(x.min()), float(x.max()), 100)
+    grid_design = sm.add_constant(
+        np.column_stack([x_grid ** d for d in range(1, degree + 1)]), has_constant="add"
+    )
+    y_grid = grid_design @ np.array(coef)
+
+    return DoseResponse(
+        degree=degree,
+        coef=coef,
+        r2=float(model.rsquared),
+        r2_adj=float(model.rsquared_adj),
+        f_pvalue=float(model.f_pvalue),
+        top_term_pvalue=float(model.pvalues[-1]),
+        n=int(len(work)),
+        equation=equation,
+        x_grid=x_grid,
+        y_grid=y_grid,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Correlação (Pearson / Spearman) e correlação parcial.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CorrelationResult:
+    """Matrizes de correlação e de valores-p entre variáveis numéricas."""
+
+    method: str
+    corr: pd.DataFrame
+    pvalues: pd.DataFrame
+    n_obs: int
+
+
+def correlation_analysis(
+    df: pd.DataFrame, columns: Sequence[str], method: str = "pearson"
+) -> CorrelationResult:
+    """Matriz de correlação (Pearson ou Spearman) com valores-p pareados.
+
+    Usa apenas linhas completas (listwise) nas colunas selecionadas.
+    """
+    from scipy import stats as sps
+
+    cols = list(columns)
+    work = df[cols].dropna()
+    n = len(cols)
+    corr = pd.DataFrame(np.eye(n), index=cols, columns=cols)
+    pvals = pd.DataFrame(np.zeros((n, n)), index=cols, columns=cols)
+
+    fn = sps.spearmanr if method == "spearman" else sps.pearsonr
+    for i in range(n):
+        for j in range(i + 1, n):
+            xi = work[cols[i]].to_numpy()
+            xj = work[cols[j]].to_numpy()
+            if len(xi) < 3:
+                r, p = float("nan"), float("nan")
+            else:
+                r, p = fn(xi, xj)
+            corr.iloc[i, j] = corr.iloc[j, i] = float(r)
+            pvals.iloc[i, j] = pvals.iloc[j, i] = float(p)
+    return CorrelationResult(method=method, corr=corr, pvalues=pvals, n_obs=int(len(work)))
+
+
+def partial_correlation(
+    df: pd.DataFrame, x: str, y: str, covars: Sequence[str], method: str = "pearson"
+) -> tuple[float, float]:
+    """Correlação parcial entre ``x`` e ``y`` controlando por ``covars``.
+
+    Calcula a correlação entre os resíduos de ``x`` e de ``y`` após regressão
+    linear sobre as covariáveis. Devolve ``(r, p)``.
+    """
+    from scipy import stats as sps
+
+    cols = [x, y] + list(covars)
+    work = df[cols].dropna()
+    if len(work) < len(covars) + 3:
+        return float("nan"), float("nan")
+
+    c = work[list(covars)].to_numpy(dtype=float)
+    c = np.column_stack([np.ones(len(c)), c])
+
+    def _resid(v: np.ndarray) -> np.ndarray:
+        beta, *_ = np.linalg.lstsq(c, v, rcond=None)
+        return v - c @ beta
+
+    rx = _resid(work[x].to_numpy(dtype=float))
+    ry = _resid(work[y].to_numpy(dtype=float))
+    fn = sps.spearmanr if method == "spearman" else sps.pearsonr
+    r, p = fn(rx, ry)
+    return float(r), float(p)
+
+
 __all__ = [
     "ConfoundingPair",
     "ExperimentalAnova",
     "AssumptionResult",
+    "CorrelationResult",
+    "DoseResponse",
     "MEAN_COMPARISON_METHODS",
     "audit_pair_confounding",
     "compare_means",
+    "correlation_analysis",
     "cramers_v",
     "detect_confounded_pairs",
     "duncan_groups",
+    "fit_dose_response",
     "fit_experimental_anova",
     "group_means",
+    "partial_correlation",
     "homoscedasticity_test",
     "lsd_groups",
     "normality_test",

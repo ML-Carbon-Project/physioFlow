@@ -10,14 +10,17 @@ from src.stats_utils import (
     MEAN_COMPARISON_METHODS,
     audit_pair_confounding,
     compare_means,
+    correlation_analysis,
     cramers_v,
     detect_confounded_pairs,
     duncan_groups,
+    fit_dose_response,
     fit_experimental_anova,
     group_means,
     homoscedasticity_test,
     lsd_groups,
     normality_test,
+    partial_correlation,
     scheffe_groups,
     scott_knott_groups,
     tukey_groups,
@@ -62,6 +65,27 @@ class TestFitExperimentalAnova:
         assert result.design == "DBC"
         assert "bloco" in result.table.index
         assert result.table.loc["trat", "p_value"] < 0.01
+
+    def test_latin_square_design(self):
+        # Quadrado latino 3x3: 3 tratamentos, 3 linhas, 3 colunas.
+        rng = np.random.default_rng(3)
+        layout = {
+            ("L1", "C1"): "T1", ("L1", "C2"): "T2", ("L1", "C3"): "T3",
+            ("L2", "C1"): "T2", ("L2", "C2"): "T3", ("L2", "C3"): "T1",
+            ("L3", "C1"): "T3", ("L3", "C2"): "T1", ("L3", "C3"): "T2",
+        }
+        base = {"T1": 10.0, "T2": 15.0, "T3": 20.0}
+        rows = []
+        for (linha, coluna), trat in layout.items():
+            rows.append({"trat": trat, "linha": linha, "coluna": coluna,
+                         "y": base[trat] + rng.normal(0, 0.5)})
+        df = pd.DataFrame(rows)
+        result = fit_experimental_anova(
+            df, response="y", treatment="trat", row="linha", column="coluna"
+        )
+        assert result.design == "Quadrado Latino"
+        assert "linha" in result.table.index and "coluna" in result.table.index
+        assert result.factor_terms == ["trat"]
 
     def test_factorial_includes_interaction(self):
         rng = np.random.default_rng(1)
@@ -178,6 +202,66 @@ class TestAdditionalComparisonMethods:
             table = compare_means(df, "y", "trat", result.ms_error, result.df_error, method=method)
             assert "group_letter" in table.columns
             assert table["group_letter"].notna().all()
+
+
+class TestDoseResponse:
+    def _dose_df(self, b0=5.0, b1=2.0, b2=-0.1, noise=0.3):
+        rng = np.random.default_rng(11)
+        rows = []
+        for dose in (0, 5, 10, 15, 20):
+            for _ in range(4):
+                y = b0 + b1 * dose + b2 * dose ** 2 + rng.normal(0, noise)
+                rows.append({"dose": dose, "y": y})
+        return pd.DataFrame(rows)
+
+    def test_quadratic_fit_recovers_high_r2(self):
+        res = fit_dose_response(self._dose_df(), "dose", "y", degree=2)
+        assert res.degree == 2
+        assert res.r2 > 0.95
+        assert len(res.coef) == 3                 # b0, b1, b2
+        assert res.top_term_pvalue < 0.05         # termo quadrático significativo
+        assert res.x_grid.shape == res.y_grid.shape
+
+    def test_linear_fit_has_two_coefficients(self):
+        res = fit_dose_response(self._dose_df(b2=0.0), "dose", "y", degree=1)
+        assert len(res.coef) == 2
+        assert res.equation.startswith("y = ")
+
+    def test_raises_when_too_few_dose_levels(self):
+        df = pd.DataFrame({"dose": [0, 0, 10, 10], "y": [1.0, 2, 3, 4]})
+        with pytest.raises(ValueError):
+            fit_dose_response(df, "dose", "y", degree=2)  # 2 doses, grau 2
+
+
+class TestCorrelation:
+    def test_pearson_matrix_is_symmetric_with_unit_diagonal(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(0, 1, 100)
+        df = pd.DataFrame({"x": x, "y": 2 * x + rng.normal(0, 0.1, 100), "z": rng.normal(0, 1, 100)})
+        res = correlation_analysis(df, ["x", "y", "z"], method="pearson")
+        assert np.allclose(np.diag(res.corr.to_numpy()), 1.0)
+        assert res.corr.loc["x", "y"] == pytest.approx(res.corr.loc["y", "x"])
+        assert res.corr.loc["x", "y"] > 0.98           # forte correlação
+        assert res.pvalues.loc["x", "y"] < 0.001
+
+    def test_spearman_method(self):
+        df = pd.DataFrame({"a": [1, 2, 3, 4, 5], "b": [1, 4, 9, 16, 25]})  # monotônica
+        res = correlation_analysis(df, ["a", "b"], method="spearman")
+        assert res.corr.loc["a", "b"] == pytest.approx(1.0)
+
+    def test_partial_correlation_removes_confounder(self):
+        # z dirige x e y; controlando por z, a correlação parcial cai a ~0.
+        rng = np.random.default_rng(5)
+        z = rng.normal(0, 1, 300)
+        df = pd.DataFrame({
+            "z": z,
+            "x": z + rng.normal(0, 0.3, 300),
+            "y": z + rng.normal(0, 0.3, 300),
+        })
+        r_raw = correlation_analysis(df, ["x", "y"]).corr.loc["x", "y"]
+        r_partial, p_partial = partial_correlation(df, "x", "y", ["z"])
+        assert r_raw > 0.7                # correlação bruta alta
+        assert abs(r_partial) < 0.25      # some ao controlar por z
 
 
 class TestCramersV:

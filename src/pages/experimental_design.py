@@ -22,9 +22,12 @@ from src.config.settings import PRIMARY_COLOR
 from src.i18n import t
 from src.stats_utils import (
     compare_means,
+    correlation_analysis,
+    fit_dose_response,
     fit_experimental_anova,
     homoscedasticity_test,
     normality_test,
+    partial_correlation,
 )
 
 _DESIGN_LABEL_KEYS = {
@@ -32,6 +35,7 @@ _DESIGN_LABEL_KEYS = {
     "DBC": "exp.design.dbc",
     "Fatorial": "exp.design.factorial",
     "Fatorial+Bloco": "exp.design.factorial_block",
+    "Quadrado Latino": "exp.design.latin_square",
 }
 
 # Rótulos dos métodos de comparação de médias (nomes próprios, não traduzidos).
@@ -323,23 +327,7 @@ def _render_reproducibility_tab(
     )
 
 
-def render() -> None:
-    st.subheader(t("exp.title"))
-    st.caption(t("exp.intro"))
-
-    df_raw = ensure_raw_dataframe(t("exp.warn_no_data"))
-    if df_raw is None:
-        return
-
-    df = render_dataset_source_toggle("exp_use_processed")
-    if df is None:
-        df = df_raw
-
-    numeric_cols = list(df.select_dtypes(include="number").columns)
-    cat_cols = [c for c in df.columns if c not in numeric_cols]
-    if not numeric_cols:
-        st.warning(t("exp.no_numeric"))
-        return
+def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: list[str]) -> None:
     if not cat_cols:
         st.warning(t("exp.no_cat"))
         return
@@ -351,26 +339,41 @@ def render() -> None:
     c1, c2 = st.columns(2)
     response = c1.selectbox(t("exp.config.response"), options=numeric_cols, key="exp_response")
     treatment = c2.selectbox(t("exp.config.treatment"), options=cat_cols, key="exp_treatment")
+    other_cats = [c for c in cat_cols if c != treatment]
 
     c3, c4 = st.columns(2)
     block_choice = c3.selectbox(
-        t("exp.config.block"), options=[none_label] + [c for c in cat_cols if c != treatment],
+        t("exp.config.block"), options=[none_label] + other_cats,
         key="exp_block", help=t("exp.config.block_help"),
     )
     factor2_choice = c4.selectbox(
-        t("exp.config.factor2"),
-        options=[none_label] + [c for c in cat_cols if c != treatment],
+        t("exp.config.factor2"), options=[none_label] + other_cats,
         key="exp_factor2", help=t("exp.config.factor2_help"),
     )
     block = None if block_choice == none_label else block_choice
     factor2 = None if factor2_choice == none_label else factor2_choice
-    if factor2 and factor2 == block:
+
+    with st.expander(t("exp.config.latin_square"), expanded=False):
+        st.caption(t("exp.config.latin_help"))
+        cl1, cl2 = st.columns(2)
+        row_choice = cl1.selectbox(t("exp.config.row"), options=[none_label] + other_cats, key="exp_row")
+        col_choice = cl2.selectbox(t("exp.config.column"), options=[none_label] + other_cats, key="exp_column")
+    row = None if row_choice == none_label else row_choice
+    column = None if col_choice == none_label else col_choice
+
+    if row and column:
+        block = factor2 = None  # quadrado latino tem prioridade
+        if row == column:
+            st.error(t("exp.config.row_col_clash"))
+            return
+    elif factor2 and factor2 == block:
         st.error(t("exp.config.block_factor_clash"))
         return
 
-    cols = [response, treatment] + ([factor2] if factor2 else []) + ([block] if block else [])
+    used = [treatment] + [c for c in (factor2, block, row, column) if c]
+    cols = [response] + used
     df_clean = df[cols].dropna().copy()
-    for c in [treatment] + ([factor2] if factor2 else []) + ([block] if block else []):
+    for c in used:
         df_clean[c] = df_clean[c].astype(str)
 
     if df_clean[treatment].nunique() < 2:
@@ -381,7 +384,7 @@ def render() -> None:
         return
 
     try:
-        result = fit_experimental_anova(df_clean, response, treatment, block, factor2)
+        result = fit_experimental_anova(df_clean, response, treatment, block, factor2, row, column)
     except ValueError as exc:
         st.error(t("exp.error_fit", msg=str(exc)))
         return
@@ -399,10 +402,155 @@ def render() -> None:
     with tabs[1]:
         _render_assumptions_tab(result, df_clean, treatment, response)
     with tabs[2]:
-        method = _render_comparison_tab(result, df_clean, response)
+        _render_comparison_tab(result, df_clean, response)
     with tabs[3]:
         factor = st.session_state.get("exp_compare_factor", treatment)
         method = st.session_state.get("exp_compare_method", "tukey")
         _render_reproducibility_tab(
             result, df_clean, response, treatment, block, factor2, factor, method
         )
+
+
+def _render_dose_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:
+    st.markdown(f"#### {t('exp.dose.title')}")
+    st.caption(t("exp.dose.caption"))
+    if len(numeric_cols) < 2:
+        st.warning(t("exp.dose.need_numeric"))
+        return
+
+    c1, c2, c3 = st.columns(3)
+    dose = c1.selectbox(t("exp.dose.dose_col"), options=numeric_cols, key="exp_dose_x")
+    y_options = [c for c in numeric_cols if c != dose]
+    response = c2.selectbox(t("exp.dose.response_col"), options=y_options, key="exp_dose_y")
+    degree = c3.selectbox(
+        t("exp.dose.degree"), options=[1, 2, 3], index=1,
+        format_func=lambda d: {1: t("exp.dose.linear"), 2: t("exp.dose.quadratic"), 3: t("exp.dose.cubic")}[d],
+        key="exp_dose_degree",
+    )
+
+    try:
+        res = fit_dose_response(df, dose, response, degree)
+    except ValueError as exc:
+        st.warning(str(exc))
+        return
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("R²", f"{res.r2:.4f}")
+    m2.metric(t("exp.dose.r2_adj"), f"{res.r2_adj:.4f}")
+    m3.metric(t("exp.dose.top_term_p"), _format_p(res.top_term_pvalue))
+    st.code(res.equation, language="text")
+    if res.top_term_pvalue >= 0.05 and degree > 1:
+        st.info(t("exp.dose.top_term_ns"))
+
+    work = df[[dose, response]].dropna()
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    ax.scatter(work[dose], work[response], alpha=0.55, s=28, color=PRIMARY_COLOR, label=t("exp.dose.observed"))
+    ax.plot(res.x_grid, res.y_grid, color="#b45309", linewidth=2.2, label=t("exp.dose.fit"))
+    ax.set_xlabel(dose)
+    ax.set_ylabel(response)
+    ax.set_title(t("exp.dose.plot_title", y=response, x=dose))
+    ax.legend()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def _render_correlation_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:
+    st.markdown(f"#### {t('exp.corr.title')}")
+    st.caption(t("exp.corr.caption"))
+    if len(numeric_cols) < 2:
+        st.warning(t("exp.dose.need_numeric"))
+        return
+
+    method = st.radio(
+        t("exp.corr.method"), options=["pearson", "spearman"],
+        format_func=lambda m: "Pearson" if m == "pearson" else "Spearman",
+        horizontal=True, key="exp_corr_method",
+    )
+    default_cols = numeric_cols[: min(8, len(numeric_cols))]
+    selected = st.multiselect(
+        t("exp.corr.vars"), options=numeric_cols, default=default_cols, key="exp_corr_vars"
+    )
+    if len(selected) < 2:
+        st.info(t("exp.corr.select_two"))
+        return
+
+    res = correlation_analysis(df, selected, method=method)
+    st.caption(t("exp.corr.n_obs", n=res.n_obs))
+
+    fig, ax = plt.subplots(figsize=(0.9 * len(selected) + 2, 0.8 * len(selected) + 1.5))
+    im = ax.imshow(res.corr.to_numpy(), vmin=-1, vmax=1, cmap="RdYlGn")
+    ax.set_xticks(range(len(selected)))
+    ax.set_xticklabels(selected, rotation=45, ha="right")
+    ax.set_yticks(range(len(selected)))
+    ax.set_yticklabels(selected)
+    for i in range(len(selected)):
+        for j in range(len(selected)):
+            ax.text(j, i, f"{res.corr.iloc[i, j]:.2f}", ha="center", va="center", fontsize=8)
+    fig.colorbar(im, ax=ax, shrink=0.8)
+    ax.set_title(t("exp.corr.heatmap_title", method=method.capitalize()))
+    st.pyplot(fig)
+    plt.close(fig)
+
+    st.download_button(
+        t("exp.corr.download"),
+        data=res.corr.to_csv().encode("utf-8-sig"),
+        file_name=f"correlacao_{method}.csv",
+        mime="text/csv",
+    )
+
+    with st.expander(t("exp.corr.partial_title"), expanded=False):
+        st.caption(t("exp.corr.partial_help"))
+        pc1, pc2 = st.columns(2)
+        x = pc1.selectbox(t("exp.corr.partial_x"), options=selected, key="exp_pc_x")
+        y_opts = [c for c in selected if c != x]
+        y = pc2.selectbox(t("exp.corr.partial_y"), options=y_opts, key="exp_pc_y")
+        covar_opts = [c for c in selected if c not in (x, y)]
+        covars = st.multiselect(t("exp.corr.partial_covars"), options=covar_opts, key="exp_pc_covars")
+        if covars:
+            r, p = partial_correlation(df, x, y, covars, method=method)
+            raw = res.corr.loc[x, y]
+            cc1, cc2, cc3 = st.columns(3)
+            cc1.metric(t("exp.corr.partial_raw"), f"{raw:.4f}")
+            cc2.metric(t("exp.corr.partial_r"), f"{r:.4f}")
+            cc3.metric(t("exp.corr.partial_p"), _format_p(p))
+        else:
+            st.info(t("exp.corr.partial_pick_covar"))
+
+
+def render() -> None:
+    st.subheader(t("exp.title"))
+    st.caption(t("exp.intro"))
+
+    df_raw = ensure_raw_dataframe(t("exp.warn_no_data"))
+    if df_raw is None:
+        return
+
+    df = render_dataset_source_toggle("exp_use_processed")
+    if df is None:
+        df = df_raw
+
+    numeric_cols = list(df.select_dtypes(include="number").columns)
+    cat_cols = [c for c in df.columns if c not in numeric_cols]
+    if not numeric_cols:
+        st.warning(t("exp.no_numeric"))
+        return
+
+    mode = st.radio(
+        t("exp.mode.label"),
+        options=["design", "dose", "correlation"],
+        format_func=lambda m: {
+            "design": t("exp.mode.design"),
+            "dose": t("exp.mode.dose"),
+            "correlation": t("exp.mode.correlation"),
+        }[m],
+        horizontal=True,
+        key="exp_mode",
+    )
+    st.divider()
+
+    if mode == "design":
+        _render_design_mode(df, numeric_cols, cat_cols)
+    elif mode == "dose":
+        _render_dose_mode(df, numeric_cols)
+    else:
+        _render_correlation_mode(df, numeric_cols)
