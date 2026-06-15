@@ -18,3 +18,6 @@ docs/manual.*.pdf
 
 # Memória interna do Claude Code — não vai para o repo
 .claude-memory/
+
+# Material de referência (PDFs/artigos pesados; não versionar)
+artigos_base/

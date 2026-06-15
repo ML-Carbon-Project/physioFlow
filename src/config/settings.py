@@ -76,6 +76,7 @@ NAVIGATION_ITEMS = [
     NavigationItem(key="spatial", label_key="nav.spatial", icon="geo-alt"),
     NavigationItem(key="timeseries", label_key="nav.timeseries", icon="clock-history"),
     NavigationItem(key="comparative", label_key="nav.comparative", icon="bar-chart-steps"),
+    NavigationItem(key="experimental", label_key="nav.experimental", icon="diagram-3"),
 ]
 
 PIPELINE_DROP_CANDIDATES = [
