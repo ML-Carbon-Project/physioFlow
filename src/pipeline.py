@@ -107,17 +107,41 @@ def coerce_date_series(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, errors="coerce")
 
 
-def load_uploaded_file(uploaded_file, sheet_name: Optional[str] = None) -> pd.DataFrame:
+TEXT_EXTENSIONS = (".csv", ".txt", ".tsv")
+
+# Mapeia a escolha de delimitador (vinda da UI) para o parametro ``sep`` do
+# pandas. ``None`` aciona o sniffer automatico (engine="python").
+DELIMITER_SEP = {
+    "auto": None,
+    "comma": ",",
+    "semicolon": ";",
+    "tab": "\t",
+    "space": r"\s+",
+}
+
+
+def load_uploaded_file(
+    uploaded_file,
+    sheet_name: Optional[str] = None,
+    delimiter: str = "auto",
+) -> pd.DataFrame:
     name = uploaded_file.name.lower()
-    if name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
+    if name.endswith(TEXT_EXTENSIONS):
+        sep = DELIMITER_SEP.get(delimiter)
+        # O engine "python" so e necessario para o sniffer automatico (sep=None)
+        # e para o separador por regex de espacos (\s+). Para delimitadores
+        # literais usamos o engine C (padrao), bem mais rapido em arquivos grandes.
+        if sep is None or sep == r"\s+":
+            df = pd.read_csv(uploaded_file, sep=sep, engine="python")
+        else:
+            df = pd.read_csv(uploaded_file, sep=sep)
     elif name.endswith(".xlsx") or name.endswith(".xls"):
         if sheet_name:
             df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
         else:
             df = pd.read_excel(uploaded_file)
     else:
-        raise ValueError("Formato não suportado. Envie CSV ou Excel.")
+        raise ValueError("Formato não suportado. Envie CSV, TXT/TSV ou Excel.")
     
     # Strip spaces from column names
     df = df.rename(columns=lambda c: c.strip() if isinstance(c, str) else c)

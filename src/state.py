@@ -17,8 +17,17 @@ class _UploadedBytesIO(io.BytesIO):
 
 
 @st.cache_data(show_spinner=False)
-def load_data(file_bytes: bytes, file_name: str, sheet_name: Optional[str]) -> pd.DataFrame:
-    return load_uploaded_file(_UploadedBytesIO(file_bytes, file_name), sheet_name=sheet_name)
+def load_data(
+    file_bytes: bytes,
+    file_name: str,
+    sheet_name: Optional[str],
+    delimiter: str = "auto",
+) -> pd.DataFrame:
+    return load_uploaded_file(
+        _UploadedBytesIO(file_bytes, file_name),
+        sheet_name=sheet_name,
+        delimiter=delimiter,
+    )
 
 
 @st.cache_data(show_spinner=False)

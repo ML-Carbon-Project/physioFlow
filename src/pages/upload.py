@@ -75,9 +75,17 @@ def _render_schema_report(df: pd.DataFrame) -> None:
         )
 
 
+_DELIMITER_KEYS = ("auto", "comma", "semicolon", "tab", "space")
+_TEXT_EXTENSIONS = (".csv", ".txt", ".tsv")
+
+
 def render():
     st.subheader(t("upload.title"))
-    uploaded = st.file_uploader(t("upload.uploader_label"), type=["csv", "xlsx", "xls"], key="upload_file")
+    uploaded = st.file_uploader(
+        t("upload.uploader_label"),
+        type=["csv", "txt", "tsv", "xlsx", "xls"],
+        key="upload_file",
+    )
 
     if not uploaded:
         st.info(t("upload.info_send_file"))
@@ -96,9 +104,18 @@ def render():
     if sheets:
         sheet_name = st.selectbox(t("upload.select_sheet"), sheets, key="upload_sheet")
 
+    delimiter = "auto"
+    if file_name.lower().endswith(_TEXT_EXTENSIONS):
+        delimiter = st.selectbox(
+            t("upload.select_delimiter"),
+            _DELIMITER_KEYS,
+            format_func=lambda k: t(f"upload.delimiter.{k}"),
+            key="upload_delimiter",
+        )
+
     if st.button(t("upload.load_button"), type="primary"):
         try:
-            df_raw = load_data(file_bytes, file_name, sheet_name)
+            df_raw = load_data(file_bytes, file_name, sheet_name, delimiter)
         except Exception as exc:
             st.error(t("upload.error_load", error=exc))
         else:
