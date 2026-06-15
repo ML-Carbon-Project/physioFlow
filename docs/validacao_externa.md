@@ -42,7 +42,22 @@ Exercita o **fatorial de três fatores** (todas as interações).
 | drug × biofeed | 0,60 (não significativo) |
 | interação tripla | presente no quadro |
 
-## 3. Demais datasets (ASReml Cookbook)
+## 3. Oats / Yates 1935 (`OATS.csv`) — parcelas subdivididas
+
+Exemplo canônico de split-plot (3 variedades × 4 doses de N × 6 blocos), com
+quadro de ANOVA publicado em livros de modelos mistos e no `nlme::Oats` do R.
+**Validação independente do motor de split-plot** (a ferramenta não tem acesso
+a esses valores; eles foram reproduzidos do zero).
+
+| Termo | Estrato/erro | PhysioFlow | Publicado |
+|---|---|---|---|
+| Variety (parcela) | Erro(a), gl 10 | F(2,10) = **1,485**, p = 0,272 | 1,485, p = 0,272 |
+| nitro (subparcela) | Erro(b), gl 45 | F(3,45) = **37,69**, p < 0,001 | 37,686, p < 0,001 |
+| Variety × nitro | Erro(b), gl 45 | F(6,45) = **0,303**, p = 0,932 | 0,303, p = 0,932 |
+
+CV(a) = 23,59%, CV(b) = 12,80%. **Coincidência decimal** nos três F.
+
+## 4. Demais datasets (ASReml Cookbook)
 
 | Arquivo | Uso na ferramenta | Status |
 |---|---|---|

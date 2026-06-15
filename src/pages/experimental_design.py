@@ -26,6 +26,7 @@ from src.stats_utils import (
     correlation_analysis,
     fit_dose_response,
     fit_experimental_anova,
+    fit_split_plot,
     homoscedasticity_test,
     normality_test,
     partial_correlation,
@@ -417,6 +418,24 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
     row = None if row_choice == none_label else row_choice
     column = None if col_choice == none_label else col_choice
 
+    with st.expander(t("exp.config.split_plot"), expanded=False):
+        st.caption(t("exp.config.split_help"))
+        sp1, sp2, sp3 = st.columns(3)
+        sp_whole_c = sp1.selectbox(t("exp.config.split_whole"), options=[none_label] + factor_cols, key="exp_sp_whole")
+        sp_sub_c = sp2.selectbox(t("exp.config.split_sub"), options=[none_label] + factor_cols, key="exp_sp_sub")
+        sp_block_c = sp3.selectbox(t("exp.config.split_block"), options=[none_label] + factor_cols, key="exp_sp_block")
+    sp_whole = None if sp_whole_c == none_label else sp_whole_c
+    sp_sub = None if sp_sub_c == none_label else sp_sub_c
+    sp_block = None if sp_block_c == none_label else sp_block_c
+
+    # Parcelas subdivididas têm prioridade e fluxo próprio (dois termos de erro).
+    if sp_whole and sp_sub and sp_block:
+        if len({sp_whole, sp_sub, sp_block}) < 3:
+            st.error(t("exp.config.split_clash"))
+            return
+        _render_split_plot(df, response, sp_whole, sp_sub, sp_block)
+        return
+
     if row and column:
         block = factor2 = factor3 = covariate = None  # quadrado latino tem prioridade
         if row == column:
@@ -471,6 +490,42 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         _render_reproducibility_tab(
             result, df_clean, response, treatment, block, factor2, factor, method, factor3
         )
+
+
+def _render_split_plot(df: pd.DataFrame, response: str, whole: str, sub: str, block: str) -> None:
+    try:
+        res = fit_split_plot(df, response, whole, sub, block)
+    except ValueError as exc:
+        st.error(t("exp.error_fit", msg=str(exc)))
+        return
+
+    st.success(t("exp.detected", design=t("exp.design.split_plot")))
+    m1, m2, m3 = st.columns(3)
+    m1.metric(t("exp.split.cv_a"), f"{res.cv_a_percent:.2f}%")
+    m2.metric(t("exp.split.cv_b"), f"{res.cv_b_percent:.2f}%")
+    m3.metric(t("exp.metric.n"), res.n_obs)
+
+    display = res.table.copy()
+    display["p_value"] = display["p_value"].map(_format_p)
+    display = display.rename(columns={
+        "df": t("exp.anova.col.df"), "sum_sq": t("exp.anova.col.sq"),
+        "mean_sq": t("exp.anova.col.ms"), "F": "F", "p_value": t("exp.anova.col.p"),
+    })
+    st.dataframe(
+        display.style.format({
+            t("exp.anova.col.df"): "{:.0f}", t("exp.anova.col.sq"): "{:.4f}",
+            t("exp.anova.col.ms"): "{:.4f}", "F": "{:.3f}",
+        }, na_rep="—"),
+        use_container_width=True,
+    )
+    st.caption(t("exp.split.legend", whole=whole, sub=sub))
+    st.download_button(
+        t("exp.anova.download"),
+        data=res.table.to_csv().encode("utf-8-sig"),
+        file_name="split_plot_anova.csv",
+        mime="text/csv",
+    )
+    st.info(t("exp.split.posthoc_note"))
 
 
 def _render_dose_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:

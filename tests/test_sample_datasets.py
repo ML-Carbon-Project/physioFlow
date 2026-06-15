@@ -31,6 +31,7 @@ from src.stats_utils import (
     correlation_analysis,
     fit_dose_response,
     fit_experimental_anova,
+    fit_split_plot,
 )
 
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "data" / "sample"
@@ -43,6 +44,7 @@ _SEP = {
     "SALMON.txt": "\t",
     "PRESSURE.txt": "\t",
     "penguins.csv": ",",
+    "OATS.csv": ",",
 }
 
 
@@ -193,3 +195,28 @@ class TestPressureThreeWay:
         df = _load("PRESSURE.txt")
         with pytest.raises(ValueError):
             fit_experimental_anova(df, response="pressure", treatment="drug", factor3="diet")
+
+
+class TestOatsSplitPlot:
+    """Yates (1935) oats — exemplo canônico de parcelas subdivididas.
+
+    Quadro de ANOVA publicado (ex.: nlme::Oats, livros de modelos mistos):
+    Variety F(2,10)=1,485; nitro F(3,45)=37,69; Variety×nitro F(6,45)=0,303.
+    Reproduzir estes três F valida o motor de split-plot independentemente.
+    """
+
+    def test_reproduces_published_anova(self):
+        df = _load("OATS.csv")
+        res = fit_split_plot(df, response="yield", whole_plot="Variety",
+                             subplot="nitro", block="Block")
+        tbl = res.table
+        # graus de liberdade dos dois erros
+        assert tbl.loc["Erro(a)", "df"] == 10
+        assert tbl.loc["Erro(b)", "df"] == 45
+        # F publicados (Yates oats)
+        assert tbl.loc["Variety", "F"] == pytest.approx(1.485, abs=0.01)
+        assert tbl.loc["nitro", "F"] == pytest.approx(37.69, abs=0.05)
+        assert tbl.loc["Variety × nitro", "F"] == pytest.approx(0.303, abs=0.01)
+        # parcela não significativa; subparcela altamente significativa
+        assert tbl.loc["Variety", "p_value"] > 0.05
+        assert tbl.loc["nitro", "p_value"] < 0.001

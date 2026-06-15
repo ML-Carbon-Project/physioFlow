@@ -748,6 +748,109 @@ def compare_means(
 
 
 # ---------------------------------------------------------------------------
+# Parcelas subdivididas (split-plot) — delineamento com erro composto.
+#
+# Dois fatores e DOIS termos de erro: o fator de parcela (whole-plot) é testado
+# contra o Erro(a) [bloco×parcela]; o fator de subparcela e a interação são
+# testados contra o Erro(b) [resíduo]. Implementação para dados balanceados em
+# blocos (RCBD), seguindo a montagem clássica de EMS. statsmodels fornece as
+# somas de quadrados (ortogonais no caso balanceado); os testes F com o
+# denominador correto são montados manualmente.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SplitPlotAnova:
+    """Quadro de ANOVA de parcelas subdivididas com os dois termos de erro."""
+
+    table: pd.DataFrame          # índice = fonte de variação; cols df, sum_sq, mean_sq, F, p_value
+    formula: str
+    n_obs: int
+    grand_mean: float
+    cv_a_percent: float          # CV das parcelas (Erro a)
+    cv_b_percent: float          # CV das subparcelas (Erro b)
+    residuals: np.ndarray
+    fitted: np.ndarray
+
+
+def fit_split_plot(
+    df: pd.DataFrame,
+    response: str,
+    whole_plot: str,
+    subplot: str,
+    block: str,
+) -> SplitPlotAnova:
+    """Ajusta a ANOVA de parcelas subdivididas (split-plot em blocos).
+
+    - ``whole_plot``: fator aplicado às parcelas (testado contra o Erro a);
+    - ``subplot``: fator aplicado às subparcelas (testado contra o Erro b);
+    - ``block``: bloco/repetição. O Erro(a) é a interação bloco×parcela.
+
+    Pressupõe dados balanceados. Raises ValueError se faltar variação ou se os
+    graus de liberdade de algum erro forem não positivos.
+    """
+    import statsmodels.api as sm
+    from statsmodels.formula.api import ols
+    from scipy import stats as sps
+
+    factor_cols = [whole_plot, subplot, block]
+    work = df[[response] + factor_cols].dropna().copy()
+    work = clean_factor_levels(work, factor_cols)
+    work = work.rename(columns={response: "y", whole_plot: "A", subplot: "B", block: "blk"})
+    for c in ("A", "B", "blk"):
+        work[c] = work[c].astype(str)
+
+    if work["A"].nunique() < 2 or work["B"].nunique() < 2 or work["blk"].nunique() < 2:
+        raise ValueError("Parcelas subdivididas exigem ≥2 níveis de parcela, subparcela e bloco.")
+
+    formula = "y ~ C(blk) + C(A) + C(blk):C(A) + C(B) + C(A):C(B)"
+    model = ols(formula, data=work).fit()
+    aov = sm.stats.anova_lm(model, typ=1)
+
+    def cell(term: str) -> tuple[float, float]:
+        return float(aov.loc[term, "sum_sq"]), float(aov.loc[term, "df"])
+
+    ss_blk, df_blk = cell("C(blk)")
+    ss_a, df_a = cell("C(A)")
+    ss_ea, df_ea = cell("C(blk):C(A)")
+    ss_b, df_b = cell("C(B)")
+    ss_ab, df_ab = cell("C(A):C(B)")
+    ss_eb, df_eb = float(aov.loc["Residual", "sum_sq"]), float(aov.loc["Residual", "df"])
+
+    if df_ea <= 0 or df_eb <= 0:
+        raise ValueError("Graus de liberdade de erro insuficientes (dados desbalanceados?).")
+
+    ms_ea, ms_eb = ss_ea / df_ea, ss_eb / df_eb
+    f_a = (ss_a / df_a) / ms_ea
+    f_b = (ss_b / df_b) / ms_eb
+    f_ab = (ss_ab / df_ab) / ms_eb
+    nan = float("nan")
+    rows = [
+        (block, df_blk, ss_blk, ss_blk / df_blk, nan, nan),
+        (whole_plot, df_a, ss_a, ss_a / df_a, f_a, float(sps.f.sf(f_a, df_a, df_ea))),
+        ("Erro(a)", df_ea, ss_ea, ms_ea, nan, nan),
+        (subplot, df_b, ss_b, ss_b / df_b, f_b, float(sps.f.sf(f_b, df_b, df_eb))),
+        (f"{whole_plot} × {subplot}", df_ab, ss_ab, ss_ab / df_ab, f_ab, float(sps.f.sf(f_ab, df_ab, df_eb))),
+        ("Erro(b)", df_eb, ss_eb, ms_eb, nan, nan),
+    ]
+    table = pd.DataFrame(
+        rows, columns=["source", "df", "sum_sq", "mean_sq", "F", "p_value"]
+    ).set_index("source")
+
+    grand_mean = float(work["y"].mean())
+    return SplitPlotAnova(
+        table=table,
+        formula=formula,
+        n_obs=int(len(work)),
+        grand_mean=grand_mean,
+        cv_a_percent=float(sqrt(ms_ea) / abs(grand_mean) * 100.0),
+        cv_b_percent=float(sqrt(ms_eb) / abs(grand_mean) * 100.0),
+        residuals=model.resid.to_numpy(),
+        fitted=model.fittedvalues.to_numpy(),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Regressão de doses (fator quantitativo) — resposta a níveis crescentes de um
 # insumo (adubo, lâmina de irrigação, densidade etc.).
 # ---------------------------------------------------------------------------
@@ -900,6 +1003,7 @@ __all__ = [
     "AssumptionResult",
     "CorrelationResult",
     "DoseResponse",
+    "SplitPlotAnova",
     "MEAN_COMPARISON_METHODS",
     "audit_pair_confounding",
     "clean_factor_levels",
@@ -910,6 +1014,7 @@ __all__ = [
     "duncan_groups",
     "fit_dose_response",
     "fit_experimental_anova",
+    "fit_split_plot",
     "group_means",
     "partial_correlation",
     "homoscedasticity_test",
