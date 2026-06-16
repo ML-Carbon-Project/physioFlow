@@ -178,37 +178,38 @@ def render():
     holdout_predictions: dict[str, pd.DataFrame] = {}
     failures = []
 
-    for model_key in selected_models:
-        model_def = MODEL_REGISTRY[model_key]
-        pipeline = build_model_pipeline(model_key, categorical_features, numeric_features)
+    with st.spinner(t("modeling.training")):
+        for model_key in selected_models:
+            model_def = MODEL_REGISTRY[model_key]
+            pipeline = build_model_pipeline(model_key, categorical_features, numeric_features)
 
-        try:
-            pipeline.fit(X_train, y_train)
-            predictions = pipeline.predict(X_test)
-            if groups is not None:
-                cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2", groups=groups)
-            else:
-                cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2")
-        except Exception as exc:
-            failures.append(t("modeling.warn_train_failed", error=f"{t(model_def.label_key)}: {exc}"))
-            continue
+            try:
+                pipeline.fit(X_train, y_train)
+                predictions = pipeline.predict(X_test)
+                if groups is not None:
+                    cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2", groups=groups)
+                else:
+                    cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2")
+            except Exception as exc:
+                failures.append(t("modeling.warn_train_failed", error=f"{t(model_def.label_key)}: {exc}"))
+                continue
 
-        results.append(
-            {
-                t("modeling.col.model"): t(model_def.label_key),
-                t("modeling.col.r2_holdout"): r2_score(y_test, predictions),
-                t("modeling.col.mae_holdout"): mean_absolute_error(y_test, predictions),
-                t("modeling.col.rmse_holdout"): mean_squared_error(y_test, predictions) ** 0.5,
-                t("modeling.col.cv_mean"): cv_scores.mean(),
-                t("modeling.col.cv_std"): cv_scores.std(),
-            }
-        )
+            results.append(
+                {
+                    t("modeling.col.model"): t(model_def.label_key),
+                    t("modeling.col.r2_holdout"): r2_score(y_test, predictions),
+                    t("modeling.col.mae_holdout"): mean_absolute_error(y_test, predictions),
+                    t("modeling.col.rmse_holdout"): mean_squared_error(y_test, predictions) ** 0.5,
+                    t("modeling.col.cv_mean"): cv_scores.mean(),
+                    t("modeling.col.cv_std"): cv_scores.std(),
+                }
+            )
 
-        holdout_predictions[t(model_def.label_key)] = pd.DataFrame({"observed": y_test.to_numpy(), "predicted": predictions})
+            holdout_predictions[t(model_def.label_key)] = pd.DataFrame({"observed": y_test.to_numpy(), "predicted": predictions})
 
-        feature_importance = extract_feature_importance(pipeline)
-        if feature_importance is not None and not feature_importance.empty:
-            model_details[t(model_def.label_key)] = feature_importance.head(15)
+            feature_importance = extract_feature_importance(pipeline)
+            if feature_importance is not None and not feature_importance.empty:
+                model_details[t(model_def.label_key)] = feature_importance.head(15)
 
     for failure in failures:
         st.warning(failure)
@@ -284,6 +285,88 @@ def _classification_target_candidates(df: pd.DataFrame) -> list[str]:
     return candidates
 
 
+@st.cache_data(show_spinner=False)
+def _train_classifiers(data, features, target, model_keys, scaler, cv_kind, cv_folds, test_size):
+    """Treina e avalia os classificadores selecionados (função pura, cacheável).
+
+    Não chama ``st.*`` nem ``t(...)`` — devolve estrutura independente de idioma,
+    chaveada por ``model_key``, para que a tradução/plotagem fiquem na renderização
+    e o cache permaneça válido ao trocar de idioma.
+    """
+    features = list(features)
+    model_keys = list(model_keys)
+    X = data[features]
+    y = data[target].astype(str)
+
+    class_counts = y.value_counts()
+    min_class = int(class_counts.min())
+    eff_folds = cv_folds
+    fold_warning = None
+    if cv_kind == "stratified":
+        if min_class < cv_folds:
+            eff_folds = max(2, min_class)
+            fold_warning = (min_class, cv_folds, eff_folds)
+        cv = StratifiedKFold(n_splits=eff_folds, shuffle=True, random_state=42)
+        stratify = y if min_class >= 2 else None
+    else:
+        cv = KFold(n_splits=eff_folds, shuffle=True, random_state=42)
+        stratify = None
+
+    numeric_features = [
+        column for column in features
+        if pd.api.types.is_numeric_dtype(data[column]) and not pd.api.types.is_bool_dtype(data[column])
+    ]
+    categorical_features = [column for column in features if column not in numeric_features]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=42, stratify=stratify
+    )
+    labels = sorted(y.unique())
+
+    metrics = []
+    confusion: dict[str, pd.DataFrame] = {}
+    importances: dict[str, pd.DataFrame] = {}
+    failures = []
+
+    for model_key in model_keys:
+        pipeline = build_model_pipeline(
+            model_key, categorical_features, numeric_features, registry=CLASSIFIER_REGISTRY, scaler=scaler
+        )
+        try:
+            pipeline.fit(X_train, y_train)
+            predictions = pipeline.predict(X_test)
+            cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="accuracy")
+        except Exception as exc:
+            failures.append((model_key, str(exc)))
+            continue
+
+        metrics.append(
+            {
+                "model_key": model_key,
+                "accuracy": float(accuracy_score(y_test, predictions)),
+                "f1": float(f1_score(y_test, predictions, average="macro", zero_division=0)),
+                "precision": float(precision_score(y_test, predictions, average="macro", zero_division=0)),
+                "recall": float(recall_score(y_test, predictions, average="macro", zero_division=0)),
+                "cv_mean": float(cv_scores.mean()),
+                "cv_std": float(cv_scores.std()),
+            }
+        )
+        cm = confusion_matrix(y_test, predictions, labels=labels)
+        confusion[model_key] = pd.DataFrame(cm, index=labels, columns=labels)
+        fi = extract_feature_importance(pipeline)
+        if fi is not None and not fi.empty:
+            importances[model_key] = fi.head(15)
+
+    return {
+        "metrics": metrics,
+        "confusion": confusion,
+        "importances": importances,
+        "failures": failures,
+        "labels": labels,
+        "fold_warning": fold_warning,
+    }
+
+
 def _render_classification(df: pd.DataFrame) -> None:
     all_columns = list(df.columns)
 
@@ -342,122 +425,90 @@ def _render_classification(df: pd.DataFrame) -> None:
         key="modeling_clf_cv_kind",
     )
 
-    df_model = df.dropna(subset=features + [target]).copy()
-    if len(df_model) < 30:
+    data = df.dropna(subset=features + [target])[features + [target]].copy()
+    if len(data) < 30:
         st.warning(t("modeling.warn_too_few_rows"))
         return
 
-    X = df_model[features]
-    y = df_model[target].astype(str)
-
-    class_counts = y.value_counts()
-    if class_counts.size < 2:
+    if data[target].astype(str).nunique() < 2:
         st.warning(t("modeling.warn_clf_one_class"))
         return
 
-    min_class = int(class_counts.min())
-    eff_folds = cv_folds
-    if cv_kind == "stratified":
-        # StratifiedKFold exige >= cv_folds amostras na menor classe; reduzimos as
-        # dobras quando alguma classe e rara para nao falhar.
-        if min_class < cv_folds:
-            eff_folds = max(2, min_class)
-            st.warning(t("modeling.warn_clf_folds", min_class=min_class, folds=cv_folds, new_folds=eff_folds))
-        cv = StratifiedKFold(n_splits=eff_folds, shuffle=True, random_state=42)
-        stratify = y if min_class >= 2 else None
-    else:
-        cv = KFold(n_splits=eff_folds, shuffle=True, random_state=42)
-        stratify = None
-
-    numeric_features = [
-        column for column in features
-        if pd.api.types.is_numeric_dtype(df_model[column]) and not pd.api.types.is_bool_dtype(df_model[column])
-    ]
-    categorical_features = [column for column in features if column not in numeric_features]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42, stratify=stratify
-    )
-    labels = sorted(y.unique())
-
-    results = []
-    confusion: dict[str, pd.DataFrame] = {}
-    importances: dict[str, pd.DataFrame] = {}
-    failures = []
-
-    for model_key in selected_models:
-        model_def = CLASSIFIER_REGISTRY[model_key]
-        pipeline = build_model_pipeline(
-            model_key, categorical_features, numeric_features, registry=CLASSIFIER_REGISTRY, scaler=scaler
-        )
-        try:
-            pipeline.fit(X_train, y_train)
-            predictions = pipeline.predict(X_test)
-            cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="accuracy")
-        except Exception as exc:
-            failures.append(t("modeling.warn_train_failed", error=f"{t(model_def.label_key)}: {exc}"))
-            continue
-
-        label = t(model_def.label_key)
-        results.append(
-            {
-                t("modeling.col.model"): label,
-                t("modeling.col.accuracy"): accuracy_score(y_test, predictions),
-                t("modeling.col.f1"): f1_score(y_test, predictions, average="macro", zero_division=0),
-                t("modeling.col.precision"): precision_score(y_test, predictions, average="macro", zero_division=0),
-                t("modeling.col.recall"): recall_score(y_test, predictions, average="macro", zero_division=0),
-                t("modeling.col.cv_acc_mean"): cv_scores.mean(),
-                t("modeling.col.cv_acc_std"): cv_scores.std(),
-            }
+    # Treino + CV cacheados: interações de UI (trocar o modelo da matriz, etc.)
+    # não retreinam tudo; só recomputa quando dados/parâmetros mudam.
+    with st.spinner(t("modeling.training")):
+        out = _train_classifiers(
+            data, tuple(features), target, tuple(selected_models),
+            scaler, cv_kind, int(cv_folds), float(test_size),
         )
 
-        cm = confusion_matrix(y_test, predictions, labels=labels)
-        confusion[label] = pd.DataFrame(cm, index=labels, columns=labels)
+    if out["fold_warning"] is not None:
+        mc, folds, new_folds = out["fold_warning"]
+        st.warning(t("modeling.warn_clf_folds", min_class=mc, folds=folds, new_folds=new_folds))
 
-        feature_importance = extract_feature_importance(pipeline)
-        if feature_importance is not None and not feature_importance.empty:
-            importances[label] = feature_importance.head(15)
+    for model_key, err in out["failures"]:
+        st.warning(t("modeling.warn_train_failed", error=f"{t(CLASSIFIER_REGISTRY[model_key].label_key)}: {err}"))
 
-    for failure in failures:
-        st.warning(failure)
-
-    if not results:
+    if not out["metrics"]:
         st.error(t("modeling.error_no_models"))
         return
 
+    labels = out["labels"]
     st.caption(t("modeling.clf.n_classes", n=len(labels), classes=", ".join(map(str, labels))))
 
-    results_df = pd.DataFrame(results).sort_values(t("modeling.col.cv_acc_mean"), ascending=False)
+    col_model = t("modeling.col.model")
+    col_cvm = t("modeling.col.cv_acc_mean")
+    col_f1 = t("modeling.col.f1")
+    results_df = pd.DataFrame(
+        [
+            {
+                col_model: t(CLASSIFIER_REGISTRY[m["model_key"]].label_key),
+                t("modeling.col.accuracy"): m["accuracy"],
+                col_f1: m["f1"],
+                t("modeling.col.precision"): m["precision"],
+                t("modeling.col.recall"): m["recall"],
+                col_cvm: m["cv_mean"],
+                t("modeling.col.cv_acc_std"): m["cv_std"],
+            }
+            for m in out["metrics"]
+        ]
+    ).sort_values(col_cvm, ascending=False)
     st.dataframe(results_df, use_container_width=True)
 
     best_row = results_df.iloc[0]
     m1, m2 = st.columns(2)
-    m1.metric(t("modeling.metric.best_cv_acc"), f"{best_row[t('modeling.col.cv_acc_mean')]:.4f}")
-    m1.caption(best_row[t("modeling.col.model")])
-    m2.metric(t("modeling.metric.best_f1"), f"{best_row[t('modeling.col.f1')]:.4f}")
-    m2.caption(best_row[t("modeling.col.model")])
+    m1.metric(t("modeling.metric.best_cv_acc"), f"{best_row[col_cvm]:.4f}")
+    m1.caption(best_row[col_model])
+    m2.metric(t("modeling.metric.best_f1"), f"{best_row[col_f1]:.4f}")
+    m2.caption(best_row[col_model])
 
     # ---------------- Matriz de confusão ----------------
+    confusion = out["confusion"]
     if confusion:
         st.markdown(f"#### {t('modeling.clf.confusion_title')}")
-        chosen = st.selectbox(t("modeling.predicted_select"), options=list(confusion.keys()), key="modeling_clf_cm_select")
-        cm_df = confusion[chosen]
+        cm_label_to_key = {t(CLASSIFIER_REGISTRY[k].label_key): k for k in confusion}
+        chosen_label = st.selectbox(
+            t("modeling.predicted_select"), options=list(cm_label_to_key.keys()), key="modeling_clf_cm_select"
+        )
+        cm_df = confusion[cm_label_to_key[chosen_label]]
         fig_cm, ax_cm = plt.subplots(figsize=(max(4, 0.7 * len(labels)), max(3.5, 0.6 * len(labels))))
         sns.heatmap(cm_df, annot=True, fmt="d", cmap="Blues", ax=ax_cm)
         ax_cm.set_xlabel(t("modeling.clf.predicted"))
         ax_cm.set_ylabel(t("modeling.clf.true"))
-        ax_cm.set_title(chosen)
+        ax_cm.set_title(chosen_label)
         st.pyplot(fig_cm)
         plt.close(fig_cm)
         st.caption(t("modeling.clf.confusion_caption"))
 
     # ---------------- Importâncias / coeficientes ----------------
+    importances = out["importances"]
     if importances:
         st.markdown(f"#### {t('modeling.importance_title')}")
-        detail_model = st.selectbox(
-            t("modeling.importance_select"), options=list(importances.keys()), key="modeling_clf_imp_select"
+        imp_label_to_key = {t(CLASSIFIER_REGISTRY[k].label_key): k for k in importances}
+        detail_label = st.selectbox(
+            t("modeling.importance_select"), options=list(imp_label_to_key.keys()), key="modeling_clf_imp_select"
         )
-        importance_df = importances[detail_model]
+        importance_df = importances[imp_label_to_key[detail_label]]
         st.dataframe(importance_df, use_container_width=True)
 
         fig_imp, ax_imp = plt.subplots(figsize=(8, max(3, 0.35 * len(importance_df))))

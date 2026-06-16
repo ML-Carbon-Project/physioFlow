@@ -720,5 +720,6 @@
   "modeling.cv_kind.stratified": "StratifiedKFold (keeps class proportions)",
   "modeling.cv_kind.kfold": "KFold (random)",
   "modeling.cv_kind_help": "StratifiedKFold preserves each class proportion across folds — recommended for classification, especially with imbalanced classes. KFold splits randomly.",
-  "exp.compare.too_many_levels": "The factor has {n} levels (> {max}): comparison letters become hard to read. Consider filtering treatments."
+  "exp.compare.too_many_levels": "The factor has {n} levels (> {max}): comparison letters become hard to read. Consider filtering treatments.",
+  "modeling.training": "Training models…"
 }

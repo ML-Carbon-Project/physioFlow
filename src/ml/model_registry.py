@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
-    GradientBoostingClassifier,
-    GradientBoostingRegressor,
+    HistGradientBoostingClassifier,
+    HistGradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
 )
@@ -55,7 +55,9 @@ MODEL_REGISTRY = {
         key="gradient_boosting",
         label_key="modeling.label.gb",
         scale_numeric=False,
-        estimator_factory=lambda: GradientBoostingRegressor(random_state=42),
+        # HistGradientBoosting é muito mais rápido em escala; exige matriz densa.
+        estimator_factory=lambda: HistGradientBoostingRegressor(random_state=42),
+        requires_dense=True,
     ),
     "knn": ModelDefinition(
         key="knn",
@@ -93,7 +95,9 @@ CLASSIFIER_REGISTRY = {
         key="gradient_boosting_clf",
         label_key="modeling.label.gb",
         scale_numeric=False,
-        estimator_factory=lambda: GradientBoostingClassifier(random_state=42),
+        # HistGradientBoosting é muito mais rápido em escala; exige matriz densa.
+        estimator_factory=lambda: HistGradientBoostingClassifier(random_state=42),
+        requires_dense=True,
     ),
     "knn_clf": ModelDefinition(
         key="knn_clf",
