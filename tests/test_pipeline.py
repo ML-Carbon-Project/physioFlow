@@ -11,12 +11,48 @@ import pytest
 
 from src.pipeline import (
     StepLog,
+    aggregate_by_group,
     build_step_report,
     clean_fisiologia_data,
     coerce_date_series,
+    count_repetitions,
     find_date_column,
     find_first_existing,
 )
+
+
+class TestGenericAggregation:
+    """Agregação genérica de repetições (pipeline do perfil não-fisiológico)."""
+
+    def _df(self):
+        return pd.DataFrame({
+            "plot": ["A", "A", "B", "B"],
+            "trt": ["x", "x", "y", "y"],
+            "y": [10.0, 20.0, 30.0, 50.0],
+        })
+
+    def test_count_repetitions(self):
+        df = self._df()
+        assert count_repetitions(df, ["plot"]) == 2      # 2 grupos, 4 linhas
+        assert count_repetitions(df, ["plot", "trt"]) == 2
+        assert count_repetitions(df, []) == 0
+
+    def test_aggregate_mean_one_row_per_group(self):
+        out = aggregate_by_group(self._df(), ["plot"], "media")
+        assert len(out) == 2
+        means = dict(zip(out["plot"], out["y"]))
+        assert means["A"] == 15.0 and means["B"] == 40.0
+        assert "trt" in out.columns                       # categórica preservada (first)
+
+    def test_aggregate_median(self):
+        df = pd.DataFrame({"g": ["A", "A", "A"], "y": [1.0, 2.0, 9.0]})
+        out = aggregate_by_group(df, ["g"], "mediana")
+        assert out.loc[0, "y"] == 2.0                     # mediana robusta ao 9
+
+    def test_no_group_returns_copy_unchanged(self):
+        df = self._df()
+        out = aggregate_by_group(df, [], "media")
+        assert out.equals(df) and out is not df
 
 
 def _make_df(**kwargs) -> pd.DataFrame:

@@ -5,9 +5,63 @@ import pandas as pd
 import streamlit as st
 
 from src.components.dataset_controls import ensure_raw_dataframe
-from src.pipeline import clean_fisiologia_data, build_step_report
+from src.pipeline import aggregate_by_group, clean_fisiologia_data, build_step_report, count_repetitions
+from src.profile import is_physiology
 from src.state import get_processed_dataframe, get_report_dataframe, set_processed_dataset
 from src.i18n import t, translate_step
+
+
+def _render_generic_pipeline(df_raw: pd.DataFrame) -> None:
+    """Pipeline para datasets genéricos: passa-direto, com agregação opcional de
+    repetições (média/mediana) — sem cleaning específico de fisiologia."""
+    st.info(t("pipeline.generic.intro"))
+    work = df_raw.copy()
+
+    cols = list(work.columns)
+    agg_on = st.checkbox(t("pipeline.generic.aggregate_toggle"), value=False,
+                         help=t("pipeline.generic.aggregate_help"), key="pipe_gen_agg")
+    group_cols: list[str] = []
+    method = "media"
+    if agg_on:
+        group_cols = st.multiselect(t("pipeline.generic.group_cols"), options=cols, key="pipe_gen_groups")
+        method = st.radio(
+            t("pipeline.generic.agg_method"), options=["media", "mediana"],
+            format_func=lambda m: t("sidebar.rep.media") if m == "media" else t("sidebar.rep.mediana"),
+            horizontal=True, key="pipe_gen_method",
+        )
+        if group_cols:
+            reps = count_repetitions(work, group_cols)
+            if reps > 0:
+                st.caption(t("pipeline.generic.reps_found", n=reps))
+                work = aggregate_by_group(work, group_cols, method)
+            else:
+                st.caption(t("pipeline.generic.reps_none"))
+
+    set_processed_dataset(work, pd.DataFrame())
+
+    c1, c2 = st.columns(2)
+    c1.metric(t("pipeline.metric.original"), len(df_raw))
+    c2.metric(t("pipeline.metric.processed"), len(work))
+
+    st.markdown(f"#### {t('pipeline.preview_title')}")
+    st.dataframe(work.head(20), use_container_width=True)
+
+    st.markdown(f"#### {t('pipeline.export_title')}")
+    col_csv, col_xlsx = st.columns(2)
+    col_csv.download_button(
+        f"⬇️ {t('pipeline.export_csv')}",
+        data=work.to_csv(index=False).encode("utf-8-sig"),
+        file_name="dataset_processado.csv", mime="text/csv", use_container_width=True,
+    )
+    xlsx_buffer = io.BytesIO()
+    with pd.ExcelWriter(xlsx_buffer, engine="openpyxl") as writer:
+        work.to_excel(writer, index=False, sheet_name="Dados")
+    col_xlsx.download_button(
+        f"⬇️ {t('pipeline.export_xlsx')}",
+        data=xlsx_buffer.getvalue(), file_name="dataset_processado.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
 
 
 def render():
@@ -15,6 +69,12 @@ def render():
 
     df_raw = ensure_raw_dataframe(t("pipeline.warn_no_data"))
     if df_raw is None:
+        return
+
+    # Perfil genérico: pula todo o cleaning de fisiologia (filtro de metadados,
+    # consolidação de réplicas Chl/IAF) e oferece agregação genérica opcional.
+    if not is_physiology(df_raw):
+        _render_generic_pipeline(df_raw)
         return
 
     # Recupera o método de réplica atual do sidebar/estado

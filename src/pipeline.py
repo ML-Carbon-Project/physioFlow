@@ -328,6 +328,37 @@ def clean_fisiologia_data(
     return out, logs
 
 
+def count_repetitions(df: pd.DataFrame, group_cols: list[str]) -> int:
+    """Quantas linhas são repetições dentro dos grupos (linhas além da 1ª por grupo).
+
+    0 significa que cada combinação de ``group_cols`` é única (sem repetição).
+    """
+    if not group_cols or df.empty:
+        return 0
+    return int(df.duplicated(subset=group_cols, keep="first").sum())
+
+
+def aggregate_by_group(
+    df: pd.DataFrame, group_cols: list[str], method: str = "media"
+) -> pd.DataFrame:
+    """Agrega repetições genéricas: uma linha por grupo.
+
+    Colunas numéricas são reduzidas por média (``"media"``) ou mediana
+    (``"mediana"``); as demais colunas mantêm o primeiro valor do grupo. Pensado
+    para datasets genéricos (não-fisiológicos), onde "repetição" é simplesmente
+    mais de uma linha com a mesma chave.
+    """
+    if not group_cols:
+        return df.copy()
+    func = "median" if method == "mediana" else "mean"
+    numeric = [c for c in df.select_dtypes(include="number").columns if c not in group_cols]
+    agg: dict[str, str] = {c: func for c in numeric}
+    for c in df.columns:
+        if c not in group_cols and c not in agg:
+            agg[c] = "first"
+    return df.groupby(group_cols, as_index=False, dropna=False).agg(agg)
+
+
 def build_step_report(logs: list[StepLog]) -> pd.DataFrame:
     rows = []
     for item in logs:

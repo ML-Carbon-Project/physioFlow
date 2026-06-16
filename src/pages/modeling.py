@@ -70,6 +70,9 @@ def render():
     target = st.selectbox(t("modeling.target"), options=numeric_cols, index=numeric_cols.index(default_target))
 
     default_features = [column for column in MODEL_DEFAULT_FEATURES if column in all_columns and column != target]
+    if not default_features:
+        # Perfil genérico (sem features de fisiologia): usa as numéricas restantes.
+        default_features = [column for column in numeric_cols if column != target][:8]
     features = st.multiselect(t("modeling.features"), options=[column for column in all_columns if column != target], default=default_features)
 
     if not features:

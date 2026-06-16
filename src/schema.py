@@ -386,3 +386,29 @@ def validate_dataframe(df: pd.DataFrame) -> ValidationResult:
             pass
 
     return ValidationResult(rows=rows, warnings=warnings, errors=errors)
+
+
+# Nº mínimo de colunas do schema de fisiologia (required+recommended) presentes
+# para o dataset ser considerado "de fisiologia" pela detecção automática.
+PHYSIOLOGY_MATCH_THRESHOLD = 4
+
+
+def physiology_match_count(df: pd.DataFrame) -> int:
+    """Quantas colunas do schema de fisiologia (required+recommended) o df tem."""
+    result = validate_dataframe(df)
+    return sum(
+        1 for r in result.rows
+        if r["tier"] in ("required", "recommended") and r["status"] != "missing"
+    )
+
+
+def detect_profile(df: pd.DataFrame, threshold: int = PHYSIOLOGY_MATCH_THRESHOLD) -> str:
+    """Infere o perfil do dataset: ``"fisiologia"`` ou ``"generico"``.
+
+    Baseia-se em quantas colunas do schema de fisiologia estão presentes — assim
+    um dataset arbitrário (ex.: Palmer Penguins) cai em ``"generico"`` e não
+    dispara os defaults/presets/relatório específicos de fisiologia.
+    """
+    if df is None or df.empty:
+        return "generico"
+    return "fisiologia" if physiology_match_count(df) >= threshold else "generico"

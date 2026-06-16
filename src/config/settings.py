@@ -19,6 +19,10 @@ SESSION_AUTH_VALIDATED_AT_KEY = "auth_validated_at"
 # Chave para guardar o tratamento das replicas
 SESSION_REP_METHOD_KEY = "rep_method"
 
+# Perfil de dados: "auto" (detecta pelo schema), "fisiologia" ou "generico".
+# Controla se os defaults/presets/relatório específicos de fisiologia aparecem.
+SESSION_PROFILE_KEY = "data_profile"
+
 SIDEBAR_CSS = """
 <style>
 /* Sidebar Container Background & Border */

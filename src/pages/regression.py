@@ -9,6 +9,7 @@ import streamlit as st
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import REGRESSION_PRESETS
 from src.i18n import t
+from src.profile import is_physiology
 
 
 def _localized_preset_label(internal_key: str) -> str:
@@ -38,47 +39,49 @@ def render():
 
     none_label = t("common.none")
 
-    st.markdown(f"#### {t('regression.preset_title')}")
-    available_presets: list[tuple[str, str]] = []
-    for preset in REGRESSION_PRESETS:
-        if preset[1] in df.columns and preset[2] in df.columns:
-            available_presets.append((preset[0], _localized_preset_label(preset[0])))
+    # Presets bivariados são específicos de fisiologia; só no perfil de fisiologia.
+    if is_physiology(df):
+        st.markdown(f"#### {t('regression.preset_title')}")
+        available_presets: list[tuple[str, str]] = []
+        for preset in REGRESSION_PRESETS:
+            if preset[1] in df.columns and preset[2] in df.columns:
+                available_presets.append((preset[0], _localized_preset_label(preset[0])))
 
-    preset_options = [none_label] + [label for _, label in available_presets]
-    selected_label = st.selectbox(t("regression.preset_select"), options=preset_options, key="reg_preset")
+        preset_options = [none_label] + [label for _, label in available_presets]
+        selected_label = st.selectbox(t("regression.preset_select"), options=preset_options, key="reg_preset")
 
-    if selected_label != none_label:
-        internal = next(internal for internal, label in available_presets if label == selected_label)
-        _, x_p, y_p, hue_p = next(preset for preset in REGRESSION_PRESETS if preset[0] == internal)
-        plot_df = df[[x_p, y_p] + ([hue_p] if hue_p in df.columns else [])].dropna().copy()
-        if len(plot_df) > 3000:
-            plot_df = plot_df.sample(3000, random_state=42)
-            st.caption(t("regression.preset_caption_sample"))
+        if selected_label != none_label:
+            internal = next(internal for internal, label in available_presets if label == selected_label)
+            _, x_p, y_p, hue_p = next(preset for preset in REGRESSION_PRESETS if preset[0] == internal)
+            plot_df = df[[x_p, y_p] + ([hue_p] if hue_p in df.columns else [])].dropna().copy()
+            if len(plot_df) > 3000:
+                plot_df = plot_df.sample(3000, random_state=42)
+                st.caption(t("regression.preset_caption_sample"))
 
-        if hue_p in df.columns:
-            grid = sns.lmplot(
-                data=plot_df,
-                x=x_p,
-                y=y_p,
-                hue=hue_p,
-                palette="viridis",
-                height=5,
-                aspect=1.4,
-                scatter_kws={"alpha": 0.5, "s": 20},
-                line_kws={"linewidth": 2},
-            )
-        else:
-            grid = sns.lmplot(
-                data=plot_df,
-                x=x_p,
-                y=y_p,
-                height=5,
-                aspect=1.4,
-                scatter_kws={"alpha": 0.5, "s": 20},
-                line_kws={"linewidth": 2},
-            )
-        grid.fig.suptitle(selected_label, y=1.02)
-        st.pyplot(grid.fig)
+            if hue_p in df.columns:
+                grid = sns.lmplot(
+                    data=plot_df,
+                    x=x_p,
+                    y=y_p,
+                    hue=hue_p,
+                    palette="viridis",
+                    height=5,
+                    aspect=1.4,
+                    scatter_kws={"alpha": 0.5, "s": 20},
+                    line_kws={"linewidth": 2},
+                )
+            else:
+                grid = sns.lmplot(
+                    data=plot_df,
+                    x=x_p,
+                    y=y_p,
+                    height=5,
+                    aspect=1.4,
+                    scatter_kws={"alpha": 0.5, "s": 20},
+                    line_kws={"linewidth": 2},
+                )
+            grid.fig.suptitle(selected_label, y=1.02)
+            st.pyplot(grid.fig)
 
     st.markdown(f"#### {t('regression.custom_title')}")
     default_x = "gs" if "gs" in numeric_cols else numeric_cols[0]
