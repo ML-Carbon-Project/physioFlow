@@ -139,6 +139,8 @@ Three modes (selector at the top):
 
 **12.1 Design mode (ANOVA).** Map *response* (numeric), *treatment* (factor), optional *block*, *2nd/3rd factor* and *covariate*. The design is auto-detected: treatment → **CRD**; + block → **RCBD**; + 2nd/3rd factor → **factorial** (with interactions); + row & column → **Latin square**. A dedicated expander handles **composite-error designs** — **split-plot**, **strip-plot** and **nested** — each with its own error terms and F-tests against the correct denominator. Result tabs: **ANOVA** (df, SS, MS, F, p, experimental CV%), **Assumptions** (Shapiro–Wilk, Levene, Q–Q plot), **Mean comparison** (Tukey, Scott-Knott, Duncan, Scheffé, LSD, or **Dunnett** vs. a control; ANCOVA uses covariate-adjusted means), and **Reproducibility** (download the Python script that reproduces the analysis).
 
+![ANOVA table of a split-plot design (Yates oats data): the whole-plot factor (`gen`) is tested against Error(a) and the subplot factor (`nitro`) against Error(b), with separate CV(a) and CV(b). The F values reproduce R exactly.](img/manual/27_experimental_anova.png)
+
 **12.2 Dose regression.** Polynomial fit (linear/quadratic/cubic) for a quantitative factor (fertiliser dose, irrigation depth…), with R², adjusted R² and significance of the highest-order term.
 
 **12.3 Correlation.** Pearson/Spearman matrix (heatmap + p-values) and partial correlation controlling for covariates.

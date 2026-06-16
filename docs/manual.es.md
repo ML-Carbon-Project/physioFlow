@@ -97,6 +97,8 @@ Tres modos (selector arriba):
 
 **12.1 Modo Diseño (ANOVA).** Mapee *respuesta* (numérica), *tratamiento* (factor), *bloque* opcional, *2º/3º factor* y *covariable*. El diseño se detecta automáticamente: tratamiento → **DCA**; + bloque → **DBCA**; + 2º/3º factor → **factorial** (con interacciones); + fila y columna → **Cuadrado Latino**. Un expander dedicado maneja los **diseños de error compuesto** — **parcelas subdivididas**, **franjas** y **jerárquico** — cada uno con sus términos de error y pruebas F contra el denominador correcto. Pestañas de resultado: **ANOVA** (gl, SC, CM, F, p, CV% experimental), **Supuestos** (Shapiro–Wilk, Levene, QQ-plot), **Comparación de medias** (Tukey, Scott-Knott, Duncan, Scheffé, LSD, o **Dunnett** vs. un control; ANCOVA usa medias ajustadas por la covariable) y **Reproducibilidad** (descarga el script Python que reproduce el análisis).
 
+![Cuadro de ANOVA de un diseño en parcelas subdivididas (datos oats de Yates): el factor de parcela (`gen`) se prueba contra el Error(a) y el de subparcela (`nitro`) contra el Error(b), con CV(a) y CV(b) separados. Los valores de F reproducen exactamente los de R.](img/manual/27_experimental_anova.png)
+
 **12.2 Regresión de dosis.** Ajuste polinomial (lineal/cuadrático/cúbico) para un factor cuantitativo (dosis de fertilizante, lámina de riego…), con R², R² ajustado y significancia del término de mayor grado.
 
 **12.3 Correlación.** Matriz de Pearson/Spearman (heatmap + valores-p) y correlación parcial controlando por covariables.

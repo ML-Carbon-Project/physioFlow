@@ -1110,6 +1110,8 @@ Quatro abas de resultado:
 3. **Comparação de médias** — escolha do método: **Tukey, Scott-Knott, Duncan, Scheffé, LSD/DMS** (com letras de significância e gráfico de barras), ou **Dunnett** (cada tratamento vs. um controle). Em ANCOVA, as médias são ajustadas pela covariável.
 4. **Reprodutibilidade** — trecho do código + botão para **baixar o script Python** completo que reproduz a análise, além do CSV dos dados.
 
+![Quadro de ANOVA de um delineamento em parcelas subdivididas (dados oats de Yates): o fator de parcela (`gen`) é testado contra o Erro(a) e a subparcela (`nitro`) contra o Erro(b); CV(a) e CV(b) separados. Os valores de F reproduzem exatamente os do R.](img/manual/27_experimental_anova.png)
+
 ### 12.2 Modo Regressão de doses
 
 Para um fator **quantitativo** (dose de adubo, lâmina de irrigação, densidade…): ajuste polinomial (linear, quadrático ou cúbico) com R², R² ajustado, significância do termo de maior grau e gráfico observado + curva ajustada.
