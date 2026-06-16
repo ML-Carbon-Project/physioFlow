@@ -39,3 +39,6 @@ data/sample/0_Dados_Fisiologia_RIO VERDE.xlsx
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# Configuração do JetBrains/IntelliJ (específica de IDE/usuário)
+.idea/
