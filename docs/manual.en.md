@@ -34,10 +34,11 @@ The application is **trilingual** (Portuguese, English, Spanish) with full i18n 
 9. Spatial analysis
 10. Time series
 11. Group comparison
-12. Statistical glossary
-13. Troubleshooting (FAQ)
-14. References
-15. Contributing
+12. Experimental Statistics (designs)
+13. Statistical glossary
+14. Troubleshooting (FAQ)
+15. References
+16. Contributing
 
 ---
 
@@ -55,7 +56,7 @@ In one sentence: **validates, cleans, explores and models** field spreadsheets o
 
 * `File/paths` and `code` appear in `monospace`.
 * **Bold** marks interface elements (buttons, tabs, selector labels).
-* *Italic* marks technical terms at first occurrence — each has an entry in the [Glossary](#12-statistical-glossary).
+* *Italic* marks technical terms at first occurrence — each has an entry in the [Glossary](#13-statistical-glossary).
 * `>` introduces an action instruction ("> click **Upload**").
 * Screenshots use the bundled sample dataset `data/sample/0_Dados_Fisiologia_RIO VERDE.xlsx`.
 
@@ -68,12 +69,12 @@ Different audiences benefit from different entry points:
 | A field technician about to upload a new dataset | Ch. 2 → Ch. 3 → Ch. 4 → glance at Ch. 13 (FAQ). |
 | A graduate student running the standard analyses | Ch. 2 → Ch. 3 → Ch. 4 → Ch. 6 (EDA, in full) → the analysis chapter you need. |
 | A senior researcher reviewing methodology | Ch. 6 → Ch. 8 (GroupKFold) → Ch. 9 (UTM projection, kriging) → Ch. 11 (pairwise comparison). |
-| A peer reviewer or replicator | The Extended Abstract → Ch. 12 (Glossary) → Ch. 14 (References). |
+| A peer reviewer or replicator | The Extended Abstract → Ch. 13 (Glossary) → Ch. 15 (References). |
 | A contributor to the codebase | This manual → [`docs/architecture.md`](architecture.md) → [`docs/contributing.md`](contributing.md). |
 
 ### 1.5 What this manual does *not* cover
 
-* Statistical theory beyond brief operational definitions — the [Glossary](#12-statistical-glossary) gives 2–3 line summaries; the [References](#14-references) point to primary literature.
+* Statistical theory beyond brief operational definitions — the [Glossary](#13-statistical-glossary) gives 2–3 line summaries; the [References](#15-references) point to primary literature.
 * Field-collection protocols (how to use the IRGA, chlorophyll meter or ceptometer) — those belong to the instrument manufacturer manuals.
 * Custom analyses not exposed in the UI — for those, export the processed dataset (Ch. 4) and use external tools.
 
@@ -105,7 +106,14 @@ Different audiences benefit from different entry points:
 
 ## 8. Predictive modelling
 
-*Translation pending. See [`manual.pt.md` §8](manual.pt.md#8-modelagem-preditiva).*
+> Page **Modelling** in the sidebar.
+
+Trains and compares multiple `scikit-learn` models with cross-validation and holdout metrics. A **Task type** selector at the top switches between **Regression** (numeric target — e.g. predicting photosynthesis `A`) and **Classification** (categorical target — e.g. predicting species/crop).
+
+* **Regression** — Linear Regression, Ridge, Random Forest, Gradient Boosting, HistGradientBoosting, Decision Tree, KNN; reports holdout R²/MAE/RMSE and cross-validated R², a predicted-vs-observed plot and feature importances. An optional **GroupKFold** (grouping by site, e.g. *farm + point*) curbs pseudoreplication.
+* **Classification** — Logistic Regression, Random Forest, Decision Tree, Gradient Boosting, HistGradientBoosting, KNN, SVM, Naive Bayes; reports accuracy/F1/precision/recall, a confusion matrix and feature importances, with an optional feature-scaling selector and GroupKFold.
+
+For the full rationale on GroupKFold and importance interpretation, see [`manual.pt.md` §8](manual.pt.md#8-modelagem-preditiva).
 
 ## 9. Spatial analysis
 
@@ -119,25 +127,41 @@ Different audiences benefit from different entry points:
 
 *Translation pending. See [`manual.pt.md` §11](manual.pt.md#11-comparação-por-grupos).*
 
-## 12. Statistical glossary
+## 12. Experimental Statistics (designs)
 
-*Translation pending. See [`manual.pt.md` §12](manual.pt.md#12-glossário-estatístico).*
+> Page **Experimental Statistics** in the sidebar.
 
-## 13. Troubleshooting (FAQ)
+A **generic** experimental-design tool — works with any dataset, not just physiology. You map columns to *roles* (response, treatment, block, factors) and the tool infers the design, fits the ANOVA, checks assumptions and compares means. Inspired by the *Estatística Experimental no Rbio* workflow (Bhering & Teodoro).
 
-*Translation pending. See [`manual.pt.md` §13](manual.pt.md#13-solução-de-problemas-faq).*
+> **Validation:** the analyses were checked **number-by-number against R** (`aov`, `car::Anova` type II, `emmeans`, the `ScottKnott` package). See [`docs/validacao_externa.md`](validacao_externa.md).
 
-## 14. References
+Three modes (selector at the top):
 
-*Identical bibliography to the Portuguese edition — see [`manual.pt.md` §14](manual.pt.md#14-referências).*
+**12.1 Design mode (ANOVA).** Map *response* (numeric), *treatment* (factor), optional *block*, *2nd/3rd factor* and *covariate*. The design is auto-detected: treatment → **CRD**; + block → **RCBD**; + 2nd/3rd factor → **factorial** (with interactions); + row & column → **Latin square**. A dedicated expander handles **composite-error designs** — **split-plot**, **strip-plot** and **nested** — each with its own error terms and F-tests against the correct denominator. Result tabs: **ANOVA** (df, SS, MS, F, p, experimental CV%), **Assumptions** (Shapiro–Wilk, Levene, Q–Q plot), **Mean comparison** (Tukey, Scott-Knott, Duncan, Scheffé, LSD, or **Dunnett** vs. a control; ANCOVA uses covariate-adjusted means), and **Reproducibility** (download the Python script that reproduces the analysis).
 
-## 15. Contributing
+**12.2 Dose regression.** Polynomial fit (linear/quadratic/cubic) for a quantitative factor (fertiliser dose, irrigation depth…), with R², adjusted R² and significance of the highest-order term.
+
+**12.3 Correlation.** Pearson/Spearman matrix (heatmap + p-values) and partial correlation controlling for covariates.
+
+## 13. Statistical glossary
+
+*Translation pending. See [`manual.pt.md` §13](manual.pt.md#13-glossário-estatístico).*
+
+## 14. Troubleshooting (FAQ)
+
+*Translation pending. See [`manual.pt.md` §14](manual.pt.md#14-solução-de-problemas-faq).*
+
+## 15. References
+
+*Identical bibliography to the Portuguese edition — see [`manual.pt.md` §15](manual.pt.md#15-referências).*
+
+## 16. Contributing
 
 Found a bug, have a feature request, or want to add a new analysis?
 
 * **Bug reports and feature requests:** open an issue on the project GitHub repository.
 * **Code or documentation contributions:** see [`docs/contributing.md`](contributing.md) for the PR workflow, testing standards, and how to add languages.
-* **Build this manual as PDF:** run `scripts/build_manual_pdf.sh --lang en`. See [`manual.pt.md` §15.3](manual.pt.md#153-gerando-este-manual-em-pdf) for prerequisites.
+* **Build this manual as PDF:** run `scripts/build_manual_pdf.sh --lang en`. See [`manual.pt.md` §16.3](manual.pt.md#163-gerando-este-manual-em-pdf) for prerequisites.
 
 ---
 

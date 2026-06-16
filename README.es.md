@@ -17,7 +17,7 @@
 
 > ### 📖 [**Manual de Operación del Sistema →**](./docs/manual.es.md)
 >
-> Guía paso a paso completa: instalación, carga de datos, pipeline de limpieza, EDA, modelado, análisis espacial, serie temporal, comparación por grupos, glosario estadístico y FAQ. **15 capítulos, 26 capturas de pantalla.**
+> Guía paso a paso completa: instalación, carga de datos, pipeline de limpieza, EDA, modelado, análisis espacial, serie temporal, comparación por grupos, estadística experimental, glosario estadístico y FAQ. **16 capítulos, 26 capturas de pantalla.**
 > *Edición completa actualmente en portugués: [`manual.pt.md`](./docs/manual.pt.md). Edición en inglés con resumen extendido: [`manual.en.md`](./docs/manual.en.md). Traducción incremental al español en curso.*
 
 ---
@@ -32,14 +32,15 @@ La herramienta es agnóstica respecto a los archivos, siempre que las columnas d
 
 ## 🛠️ Características Principales
 
-1.  **Carga y Validación de Esquema** — Ingesta de archivos Excel (`.xlsx`, `.xls`) o CSV con validación en tiempo real contra el esquema de 31 columnas fisiológicas organizadas por niveles de importancia (*Requeridas*, *Recomendadas*, *Opcionales*). Realiza verificación de tipos y validación de límites geográficos.
-2.  **Pipeline de Limpieza** — Aplicación transparente de filtros reactivos: eliminación de variables no deseadas, descarte de registros sin metadatos obligatorios, eliminación de puntos de grilla vacíos y **5 modos de tratamiento de réplicas** (promedio aritmético de las réplicas, desdoblamiento de las réplicas en filas independientes mediante `melt`, o selección de réplicas específicas).
+1.  **Carga y Perfil de Datos** — Ingesta de archivos Excel (`.xlsx`, `.xls`), CSV o TXT/TSV con selector de delimitador. Un **perfil de datos** automático (Fisiología / Genérico) adapta toda la interfaz: los datasets de fisiología se validan contra el esquema de 31 columnas (niveles *Requeridas / Recomendadas / Opcionales*, verificación de tipos y de límites geográficos); cualquier otro dataset recibe un resumen neutral, sin supuestos de fisiología.
+2.  **Pipeline de Limpieza** — Limpieza reactiva y transparente. En el **perfil de fisiología**: eliminación de variables, descarte de registros sin metadatos obligatorios, eliminación de puntos de grilla vacíos y **5 modos de tratamiento de réplicas** (promedio, mediana, desdoblamiento mediante `melt`, o selección de réplica). En el **perfil genérico**: paso directo, con agregación opcional de repeticiones por promedio/mediana.
 3.  **Análisis Exploratorio de Datos (EDA)** — Estadísticas descriptivas completas, control de datos faltantes, histogramas, diagramas de caja (boxplots), mapas de calor de correlación (Pearson, Spearman, Kendall), distribución de categorías, pruebas de normalidad (Shapiro-Wilk, Anderson-Darling, D'Agostino-Pearson), multicolinealidad (VIF), rankings de hotspots y auditoría de outliers usando consenso de 5 métodos de Machine Learning.
 4.  **Regresión** — Ajuste de modelos de regresión bivariada con presets comunes en fisiología vegetal (ej.: *gs vs. A*, *Ci vs. A*, *gs vs. E*) con soporte para intervalos de confianza y segmentación (facet).
-5.  **Modelado Predictivo** — Entrenamiento y comparación de modelos de Machine Learning (Regresión Lineal, Random Forest, Gradient Boosting, Decision Tree, KNN) para estimar la tasa fotosintética `A` a partir de los demás parámetros, con métricas de validación cruzada, holdout y gráficos de importancia de atributos.
-6.  **Análisis Espacial** — Interpolación por Inverso de la Distancia (IDW), autocorrelación espacial por Moran's I global y LISA local (mapas de clusters significativos), estadísticas Getis-Ord Gi*, agregación en grilla UTM regular, interpolación por Kriging ordinario con semivariograma esférico y mapa de puntos ploteado sobre los límites geográficos de Rio Verde, GO (a través de la biblioteca `geobr`).
-7.  **Serie Temporal** — Agregación diaria y descomposición de series temporales STL (Tendencia, Estacionalidad y Residuos).
-8.  **Comparación por Grupos** — Pruebas estadísticas de Mann-Whitney U, regresión log-lineal por grupo y curvas acumulativas horarias.
+5.  **Modelado Predictivo (Regresión y Clasificación)** — Entrenamiento y comparación de modelos `scikit-learn` con validación cruzada, holdout y gráficos de importancia. **Regresión** (Lineal, Ridge, Random Forest, Gradient Boosting, HistGradientBoosting, Árbol de Decisión, KNN) y **Clasificación** (Logística, Random Forest, Árbol, Gradient Boosting, HistGradientBoosting, KNN, SVM, Naive Bayes) con exactitud/F1/precisión/recall, matriz de confusión, GroupKFold opcional y escalado.
+6.  **Estadística Experimental (diseños)** — ANOVA orientada al diseño para DCA, DBCA, Cuadrado Latino, factorial (2–3 factores), parcelas subdivididas, franjas y jerárquico; pruebas de supuestos (Shapiro–Wilk, Levene) con QQ-plots; comparación de medias (Tukey, Scott-Knott, Duncan, Scheffé, LSD, Dunnett vs. control); ANCOVA; regresión de dosis/polinomial; correlación (Pearson, Spearman, parcial). Exporta un script Python reproducible. **Validada número a número contra R** (`aov`, `car::Anova`, `emmeans`, `ScottKnott`) — ver [`docs/validacao_externa.md`](./docs/validacao_externa.md).
+7.  **Análisis Espacial** — Interpolación por Inverso de la Distancia (IDW), autocorrelación espacial por Moran's I global y LISA local (mapas de clusters significativos), estadísticas Getis-Ord Gi*, agregación en grilla UTM regular, interpolación por Kriging ordinario con semivariograma esférico y mapa de puntos opcional sobre los límites de Rio Verde, GO (a través de la biblioteca `geobr`, instalada localmente).
+8.  **Serie Temporal** — Agregación diaria y descomposición de series temporales STL (Tendencia, Estacionalidad y Residuos).
+9.  **Comparación por Grupos** — Pruebas estadísticas de Mann-Whitney U, regresión log-lineal por grupo y curvas acumulativas horarias.
 
 ---
 
@@ -53,8 +54,10 @@ fisiologia-streamlit/
 ├── src/
 │   ├── auth.py                 # Integración de inicio de sesión (Supabase)
 │   ├── state.py                # Gestión del estado de la sesión
-│   ├── schema.py               # Validador de columnas y límites
+│   ├── schema.py               # Validador de columnas, límites y detección de perfil
+│   ├── profile.py              # Resolución del perfil de datos (Fisiología / Genérico)
 │   ├── pipeline.py             # Algoritmo de limpieza y réplicas
+│   ├── stats_utils.py          # Motor de diseños (ANOVA, pruebas, designs)
 │   ├── components/             # Componentes visuales (Sidebar, Filtros Globales)
 │   │   ├── sidebar.py
 │   │   └── filters.py

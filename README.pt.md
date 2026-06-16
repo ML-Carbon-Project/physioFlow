@@ -17,7 +17,7 @@
 
 > ### 📖 [**Manual de Operação do Sistema →**](./docs/manual.pt.md)
 >
-> Guia completo passo a passo: instalação, carga de dados, pipeline de limpeza, EDA, modelagem, análise espacial, série temporal, comparação por grupos, glossário estatístico e FAQ. **15 capítulos, 26 capturas de tela.**
+> Guia completo passo a passo: instalação, carga de dados, pipeline de limpeza, EDA, modelagem, análise espacial, série temporal, comparação por grupos, estatística experimental, glossário estatístico e FAQ. **16 capítulos, 26 capturas de tela.**
 
 ---
 
@@ -31,14 +31,15 @@ A ferramenta é agnóstica em termos de arquivos, desde que as colunas da planil
 
 ## 🛠️ Funcionalidades Principais
 
-1.  **Carga & Validação de Schema** — Ingestão de arquivos Excel (`.xlsx`, `.xls`) ou CSV com validação instantânea contra o schema de 31 colunas fisiológicas organizadas por níveis de importância (*Obrigatórias*, *Recomendadas*, *Opcionais*). Realiza verificação de tipos e validação de limites geográficos.
-2.  **Pipeline de Limpeza** — Aplicação transparente de filtros reativos: remoção de variáveis indesejadas, descarte de registros sem metadados obrigatórios, eliminação de pontos de grade vazios e **5 modos de tratamento de réplicas** (média aritmética das réplicas, desdobramento das réplicas em linhas independentes via `melt`, ou seleção de réplicas específicas).
+1.  **Carga & Perfil de Dados** — Ingestão de arquivos Excel (`.xlsx`, `.xls`), CSV ou TXT/TSV com seletor de delimitador. Um **perfil de dados** automático (Fisiologia / Genérico) adapta toda a interface: datasets de fisiologia são validados contra o schema de 31 colunas (níveis *Obrigatórias / Recomendadas / Opcionais*, verificação de tipos e de limites geográficos); qualquer outro dataset recebe um resumo neutro, sem premissas de fisiologia.
+2.  **Pipeline de Limpeza** — Limpeza reativa e transparente. No **perfil de fisiologia**: remoção de variáveis, descarte de registros sem metadados obrigatórios, eliminação de pontos de grade vazios e **5 modos de tratamento de réplicas** (média, mediana, desdobramento via `melt`, ou seleção de réplica). No **perfil genérico**: passa-direto, com agregação opcional de repetições por média/mediana.
 3.  **Análise Exploratória (EDA)** — Estatística descritiva completa, qualidade de preenchimento (dados ausentes), histogramas, boxplots dinâmicos, matriz de correlação (Pearson, Spearman e Kendall), distribuição de categorias, testes de normalidade (Shapiro-Wilk, Anderson-Darling, D'Agostino-Pearson), multicolinearidade (VIF), rankings de hotspots e auditoria de outliers usando consenso de 5 métodos de Machine Learning.
 4.  **Regressão** — Ajuste de modelos de regressão bivariada com presets comuns na fisiologia vegetal (ex.: *gs vs. A*, *Ci vs. A*, *gs vs. E*) com suporte a intervalos de confiança e facetamento.
-5.  **Modelagem Preditiva** — Treinamento e comparação de modelos de Machine Learning (Regressão Linear, Random Forest, Gradient Boosting, Decision Tree, KNN) para estimar a taxa fotossintética `A` com base nos demais parâmetros, com métricas de validação cruzada, holdout e gráficos de importância de features.
-6.  **Análise Espacial** — Interpolação por Inverso da Distância (IDW), autocorrelação espacial por Moran's I global e LISA local (mapas de clusters significativos), estatísticas Getis-Ord Gi*, agregação em grade UTM regular, interpolação por Krigagem ordinária com semivariograma esférico e mapa de pontos plotado sobre os limites geográficos de Rio Verde, GO (via biblioteca `geobr`).
-7.  **Série Temporal** — Agregação diária e decomposição de séries temporais STL (Tendência, Sazonalidade e Resíduos).
-8.  **Comparação por Grupos** — Testes estatísticos de Mann-Whitney U, regressão log-linear por grupo e comportamento horário cumulativo.
+5.  **Modelagem Preditiva (Regressão & Classificação)** — Treinamento e comparação de modelos `scikit-learn` com validação cruzada, holdout e gráficos de importância. **Regressão** (Linear, Ridge, Random Forest, Gradient Boosting, HistGradientBoosting, Árvore de Decisão, KNN) e **Classificação** (Logística, Random Forest, Árvore, Gradient Boosting, HistGradientBoosting, KNN, SVM, Naive Bayes) com acurácia/F1/precisão/revocação, matriz de confusão, GroupKFold opcional e escalonamento.
+6.  **Estatística Experimental (delineamentos)** — ANOVA orientada ao delineamento para DIC, DBC, Quadrado Latino, fatorial (2–3 fatores), parcelas subdivididas, faixas e hierárquico; testes de pressupostos (Shapiro–Wilk, Levene) com QQ-plots; comparação de médias (Tukey, Scott-Knott, Duncan, Scheffé, LSD, Dunnett vs. controle); ANCOVA; regressão de doses/polinomial; correlação (Pearson, Spearman, parcial). Exporta script Python reprodutível. **Validada número a número contra o R** (`aov`, `car::Anova`, `emmeans`, `ScottKnott`) — ver [`docs/validacao_externa.md`](./docs/validacao_externa.md).
+7.  **Análise Espacial** — Interpolação por Inverso da Distância (IDW), autocorrelação espacial por Moran's I global e LISA local (mapas de clusters significativos), estatísticas Getis-Ord Gi*, agregação em grade UTM regular, interpolação por Krigagem ordinária com semivariograma esférico e mapa de pontos opcional sobre os limites de Rio Verde, GO (via biblioteca `geobr`, instalada localmente).
+8.  **Série Temporal** — Agregação diária e decomposição de séries temporais STL (Tendência, Sazonalidade e Resíduos).
+9.  **Comparação por Grupos** — Testes estatísticos de Mann-Whitney U, regressão log-linear por grupo e comportamento horário cumulativo.
 
 ---
 
@@ -52,8 +53,10 @@ fisiologia-streamlit/
 ├── src/
 │   ├── auth.py                 # Integração de Login (Supabase)
 │   ├── state.py                # Gerenciamento de estado em sessão
-│   ├── schema.py               # Validador de colunas e limites
+│   ├── schema.py               # Validador de colunas, limites e detecção de perfil
+│   ├── profile.py              # Resolução do perfil de dados (Fisiologia / Genérico)
 │   ├── pipeline.py             # Algoritmo de limpeza e réplicas
+│   ├── stats_utils.py          # Motor de delineamentos (ANOVA, testes, designs)
 │   ├── components/             # Componentes visuais (Sidebar, Filtros Globais)
 │   │   ├── sidebar.py
 │   │   └── filters.py

@@ -17,7 +17,7 @@
 
 > ### 📖 [**System Operation Manual →**](./docs/manual.en.md)
 >
-> End-to-end walkthrough: installation, data upload, cleaning pipeline, EDA, modeling, spatial analysis, time series, group comparison, statistical glossary, and FAQ. **15 chapters, 26 screenshots.**
+> End-to-end walkthrough: installation, data upload, cleaning pipeline, EDA, modeling, spatial analysis, time series, group comparison, experimental statistics, statistical glossary, and FAQ. **16 chapters, 26 screenshots.**
 > *Extended abstract and introductory chapter available in English; complete edition currently in Portuguese — see [`manual.pt.md`](./docs/manual.pt.md). Spanish edition: incremental translation in progress.*
 
 ---
@@ -32,14 +32,15 @@ The tool is dataset-agnostic, provided the spreadsheet columns map correctly to 
 
 ## 🛠️ Main Features
 
-1.  **Ingestion & Schema Validation** — Ingestion of Excel (`.xlsx`, `.xls`) or CSV files with real-time validation against a 31-column physiological schema categorized by priority (*Required*, *Recommended*, *Optional*). It performs type coercion checks and geographic coordinate limits validation.
-2.  **Cleaning Pipeline** — Transparent application of reactive filters: column removal, deselecting records without essential metadata, eliminating empty grid points, and **5 modes of replicate treatment** (mean average, replica expansion into independent rows via `melt`, or single replicate selection).
+1.  **Ingestion & Data Profile** — Ingestion of Excel (`.xlsx`, `.xls`), CSV, or TXT/TSV files with a delimiter selector. An automatic **data profile** (Physiology / Generic) adapts the whole interface: physiology datasets are validated against a 31-column schema (priority tiers *Required / Recommended / Optional*, type coercion and coordinate-range checks); any other dataset gets a neutral summary, with no physiology-specific assumptions.
+2.  **Cleaning Pipeline** — Transparent, reactive cleaning. In the **physiology profile**: column removal, dropping records without essential metadata, removing empty grid points, and **5 modes of replicate treatment** (mean, median, replicate expansion via `melt`, or single replicate). In the **generic profile**: pass-through with optional repetition aggregation by mean/median.
 3.  **Exploratory Data Analysis (EDA)** — Complete descriptive statistics, data completeness checks, histograms, boxplots, correlation heatmaps (Pearson, Spearman, Kendall), category composition, normality tests (Shapiro-Wilk, Anderson-Darling, D'Agostino-Pearson), multicollinearity (VIF), hotspot rankings, and a multi-method outlier consensus audit.
 4.  **Regression** — Bivariate regression fitting with presets tailored for crop physiology (e.g., *gs vs. A*, *Ci vs. A*, *gs vs. E*) with support for confidence intervals and faceting.
-5.  **Predictive Modeling** — Training and evaluation of machine learning models (Linear Regression, Random Forest, Gradient Boosting, Decision Tree, KNN) to estimate the photosynthetic rate `A` based on other parameters, featuring cross-validation metrics, holdout validation, and feature importance charts.
-6.  **Spatial Analysis** — Inverse Distance Weighting (IDW) interpolation, spatial autocorrelation via global Moran's I and local LISA (map of significant clusters), Getis-Ord Gi* hotspots, regular UTM grid cells aggregation, Ordinary Kriging with a fitted spherical variogram model, and a point-distribution map overlaid on Rio Verde (GO) municipal boundaries (via the `geobr` library).
-7.  **Time Series** — Daily aggregation and STL time series decomposition (Trend, Seasonal, and Residuals).
-8.  **Group Comparison** — Statistical comparisons between groups (e.g., soybean vs. sugarcane) using the Mann-Whitney U test, log-linear regression, and cumulative hourly profiles.
+5.  **Predictive Modeling (Regression & Classification)** — Training and comparison of `scikit-learn` models with cross-validation, holdout metrics, and feature-importance charts. **Regression** (Linear, Ridge, Random Forest, Gradient Boosting, HistGradientBoosting, Decision Tree, KNN) and **Classification** (Logistic, Random Forest, Decision Tree, Gradient Boosting, HistGradientBoosting, KNN, SVM, Naive Bayes) with accuracy/F1/precision/recall, confusion matrix, optional GroupKFold and feature scaling.
+6.  **Experimental Statistics (designs)** — Design-aware ANOVA for CRD, RCBD, Latin square, factorial (2–3 factors), split-plot, strip-plot and nested designs; assumption tests (Shapiro–Wilk, Levene) with Q–Q plots; mean-comparison procedures (Tukey, Scott-Knott, Duncan, Scheffé, LSD, Dunnett vs. control); ANCOVA; dose/polynomial regression; correlation (Pearson, Spearman, partial). Exports a reproducible Python script. **Validated number-by-number against R** (`aov`, `car::Anova`, `emmeans`, `ScottKnott`) — see [`docs/validacao_externa.md`](./docs/validacao_externa.md).
+7.  **Spatial Analysis** — Inverse Distance Weighting (IDW) interpolation, spatial autocorrelation via global Moran's I and local LISA (map of significant clusters), Getis-Ord Gi* hotspots, regular UTM grid cells aggregation, Ordinary Kriging with a fitted spherical variogram model, and an optional point-distribution map overlaid on Rio Verde (GO) municipal boundaries (via the optional `geobr` library, installed locally).
+8.  **Time Series** — Daily aggregation and STL time series decomposition (Trend, Seasonal, and Residuals).
+9.  **Group Comparison** — Statistical comparisons between groups (e.g., soybean vs. sugarcane) using the Mann-Whitney U test, log-linear regression, and cumulative hourly profiles.
 
 ---
 
@@ -53,8 +54,10 @@ fisiologia-streamlit/
 ├── src/
 │   ├── auth.py                 # Login integration (Supabase)
 │   ├── state.py                # Session state helpers
-│   ├── schema.py               # Schema specifications and ranges
+│   ├── schema.py               # Schema specs, ranges, and profile detection
+│   ├── profile.py              # Data profile (Physiology / Generic) resolution
 │   ├── pipeline.py             # Cleaning and replicates pipeline
+│   ├── stats_utils.py          # Experimental-design engine (ANOVA, tests, designs)
 │   ├── components/             # Reusable UI components (Sidebar, Top-Filters)
 │   │   ├── sidebar.py
 │   │   └── filters.py

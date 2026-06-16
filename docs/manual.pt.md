@@ -20,10 +20,11 @@
 9. [Análise espacial](#9-análise-espacial)
 10. [Série temporal](#10-série-temporal)
 11. [Comparação por grupos](#11-comparação-por-grupos)
-12. [Glossário estatístico](#12-glossário-estatístico)
-13. [Solução de problemas (FAQ)](#13-solução-de-problemas-faq)
-14. [Referências](#14-referências)
-15. [Contribuindo](#15-contribuindo)
+12. [Estatística Experimental (delineamentos)](#12-estatística-experimental-delineamentos)
+13. [Glossário estatístico](#13-glossário-estatístico)
+14. [Solução de problemas (FAQ)](#14-solução-de-problemas-faq)
+15. [Referências](#15-referências)
+16. [Contribuindo](#16-contribuindo)
 
 ---
 
@@ -41,7 +42,7 @@ Em uma frase: **valida, limpa, explora e modela** planilhas de campo de fisiolog
 
 * `Caminhos/de/arquivo` e `códigos` aparecem em `fonte monoespaçada`.
 * **Negrito** marca elementos da interface (botões, abas, rótulos de seletores).
-* *Itálico* marca termos técnicos na primeira ocorrência — todos têm entrada no [Glossário](#12-glossário-estatístico).
+* *Itálico* marca termos técnicos na primeira ocorrência — todos têm entrada no [Glossário](#13-glossário-estatístico).
 * `>` marca uma instrução de ação ("> clique em **Upload**").
 * Capturas de tela usam o dataset de exemplo `data/sample/0_Dados_Fisiologia_RIO VERDE.xlsx`.
 
@@ -127,11 +128,21 @@ Se o ambiente foi configurado com [Supabase](https://supabase.com) (variáveis `
 |---|---|
 | `.xlsx` | Recomendado. Suporta múltiplas planilhas — você escolhe qual carregar. |
 | `.xls` | Excel legado, aceito. |
-| `.csv` | Aceito. Use separador `,` e codificação UTF-8 ou Latin-1. |
+| `.csv` | Aceito. Use codificação UTF-8 ou Latin-1. |
+| `.txt` / `.tsv` | Aceitos. Aparece um **seletor de delimitador** (automático, vírgula, ponto-e-vírgula, tabulação, espaço). |
 
 Limite por arquivo: **500 MB** (limite do Streamlit). Para arquivos maiores, divida em planilhas.
 
-### 3.2 Schema esperado
+### 3.2 Perfil de dados (Fisiologia / Genérico)
+
+Ao carregar, a aplicação resolve um **perfil de dados**, escolhível na própria página de Upload (Automático / Fisiologia / Genérico):
+
+* **Fisiologia** — o dataset casa com o schema de fisiologia (ver §3.3): ficam ativos a validação de schema, os defaults e presets do domínio, e o tratamento de réplicas.
+* **Genérico** — qualquer outro dataset: a interface fica neutra (resumo de colunas em vez do relatório de schema, sem premissas de fisiologia, sem réplicas). É o que permite usar a plataforma com **qualquer dataset**.
+
+Em **Automático** (padrão), o perfil é detectado pelas colunas presentes; você pode forçar manualmente quando quiser.
+
+### 3.3 Schema esperado (perfil Fisiologia)
 
 O aplicativo compara o cabeçalho do seu arquivo contra um **schema de referência** com três severidades:
 
@@ -145,7 +156,7 @@ O dicionário completo de colunas — nomes canônicos, sinônimos aceitos, tipo
 
 > **Importante:** o aplicativo aceita várias grafias para a mesma coluna. `Cultura`, `CULTURA` e `Crop_Type` são tratados como o mesmo campo; o mesmo vale para `Latitude` / `LATITUDE`, `Data da coleta` / `Data` / `Date`, e assim por diante. A coluna real do arquivo aparece na coluna "Encontrada" do relatório de validação.
 
-### 3.3 Carregando o arquivo
+### 3.4 Carregando o arquivo
 
 > Clique em **Upload** > **Browse files**, escolha o arquivo `.xlsx` e clique em **Carregar arquivo**.
 
@@ -156,7 +167,7 @@ Se o arquivo for um Excel com várias planilhas, o app exibe um seletor para esc
 
 ![Arquivo carregado com métricas e início do schema](img/manual/03_upload_arquivo_carregado.png)
 
-### 3.4 Lendo o relatório de validação
+### 3.5 Lendo o relatório de validação
 
 Logo abaixo das métricas aparece o painel **Validação do schema esperado**, com três caixas resumo (obrigatórias / recomendadas / opcionais) no formato `presentes / total`.
 
@@ -179,13 +190,13 @@ Logo abaixo das métricas aparece o painel **Validação do schema esperado**, c
 
 > **Dica:** clicar no botão **Baixar relatório de validação** salva essa tabela como CSV — útil para enviar à pessoa responsável pela planilha pedindo correções pontuais.
 
-### 3.5 O que NÃO acontece no Upload
+### 3.6 O que NÃO acontece no Upload
 
 * O arquivo **não é enviado** para nenhum servidor externo. Tudo é processado localmente, na sua sessão do Streamlit.
 * Nenhum dado é **descartado** nesta etapa. O pipeline de limpeza só roda quando você abre a próxima aba (**Pipeline e Processamento**).
 * Colunas com nomes desconhecidos são **mantidas** no dataset — você pode usá-las nos filtros e gráficos do EDA, mesmo que não constem no schema oficial.
 
-### 3.6 Quando recarregar
+### 3.7 Quando recarregar
 
 * Se você corrigiu a planilha externamente (Excel) e quer aplicar as mudanças, basta repetir o upload — o app substitui o arquivo carregado anteriormente.
 * Se trocou de idioma, **não** precisa recarregar; só a UI muda, o dataset permanece.
@@ -412,7 +423,7 @@ Selectbox onde você escolhe uma coluna categórica (`Cultura`, `Fazenda`, `Est�
 
 #### Confundimento entre categorias
 
-Esta é uma seção **fundamental** que evita conclusões enganosas no resto do manual. Mostra uma tabela com os pares de colunas categóricas que particionam as linhas da **mesma forma**, calculada por *Cramér's V* (ver Glossário §12).
+Esta é uma seção **fundamental** que evita conclusões enganosas no resto do manual. Mostra uma tabela com os pares de colunas categóricas que particionam as linhas da **mesma forma**, calculada por *Cramér's V* (ver Glossário §13).
 
 ![Painel de confundimento entre categorias](img/manual/13_eda_qualidade_confounding.png)
 
@@ -668,7 +679,7 @@ Abaixo do gráfico, uma caption mostra a **correlação de Pearson** entre X e Y
 
 > Página **Modelagem** no menu lateral.
 
-Esta página permite **treinar e comparar múltiplos modelos de regressão** simultaneamente, com validação cruzada e métricas de holdout. O caso de uso típico no projeto é prever a **fotossíntese (A)** a partir das demais variáveis fisiológicas — útil para validar relações mecanísticas e identificar variáveis-chave.
+Esta página permite **treinar e comparar múltiplos modelos** simultaneamente, com validação cruzada e métricas de holdout. Um seletor no topo (**Tipo de tarefa**) alterna entre **Regressão** (alvo numérico — ex.: prever a fotossíntese `A`) e **Classificação** (alvo categórico — ex.: prever a espécie/cultura). As subseções 8.1–8.7 descrevem o fluxo de regressão; a §8.8 cobre a classificação.
 
 ### 8.1 Escolhendo target e features
 
@@ -745,6 +756,18 @@ Para qualquer modelo treinado, você pode plotar um gráfico de **predito × obs
 Para modelos baseados em árvore (RF, GB, DT), aparece um gráfico de barras com as **importâncias de features** (feature_importances_ do sklearn). Para Regressão Linear, mostra os **|coeficientes|** absolutos após padronização. KNN não fornece importância.
 
 > **Cuidado de interpretação:** importâncias de árvores **dividem o crédito** entre variáveis correlacionadas. Se `Ci` e `Ci/Ca` carregam quase a mesma informação (VIF > 10⁴ no Rio Verde, ver §6.10), o modelo divide a importância entre as duas, e nenhuma aparece como "muito importante" sozinha. Olhe o conjunto, não cada barra isoladamente.
+
+### 8.8 Modo Classificação
+
+Selecionando **Classificação** no *Tipo de tarefa*, o alvo passa a ser uma coluna **categórica** (ex.: cultura, espécie, classe de manejo). São treinados e comparados até **8 classificadores** do `scikit-learn`: Regressão Logística, Random Forest, Árvore de Decisão, Gradient Boosting, HistGradientBoosting, KNN, SVM e Naive Bayes.
+
+A avaliação usa validação cruzada (com opção de **GroupKFold** por sítio, como na regressão) e holdout, reportando:
+
+* **Acurácia, F1, Precisão e Revocação** (macro) por modelo, na tabela comparativa;
+* **Matriz de confusão** do melhor modelo;
+* **Importância de variáveis** (ou |coeficientes| na Logística).
+
+Há ainda um seletor de **escalonamento** (StandardScaler / nenhum) para os modelos sensíveis à escala (Logística, KNN, SVM). O fluxo é simétrico ao de regressão — a diferença é o alvo categórico e as métricas de classificação.
 
 ---
 
@@ -1049,9 +1072,57 @@ Tabela exportável como CSV.
 
 ---
 
-## 12. Glossário estatístico
+## 12. Estatística Experimental (delineamentos)
 
-Definições curtas dos termos técnicos usados no manual. Para aprofundamento, ver as Referências (§14).
+> Página **Estatística Experimental** no menu lateral.
+
+Esta página é uma ferramenta **genérica** de análise de delineamentos experimentais — funciona com qualquer dataset (do projeto ou de terceiros), não apenas fisiologia. Você mapeia as colunas para *papéis* (resposta, tratamento, bloco, fatores) e a ferramenta infere o delineamento, ajusta a ANOVA, testa os pressupostos e compara as médias. É inspirada no fluxo do *Estatística Experimental no Rbio* (Bhering & Teodoro).
+
+> **Validação:** as análises foram conferidas **número a número contra o R** (`aov`, `car::Anova` tipo II, `emmeans`, pacote `ScottKnott`). Ver `docs/validacao_externa.md`.
+
+A página tem três modos (seletor no topo):
+
+### 12.1 Modo Delineamento (ANOVA)
+
+Mapeie as colunas:
+
+* **Variável-resposta** — numérica (ex.: produtividade, `A`).
+* **Tratamento** — fator principal (categórico). Colunas numéricas de baixa cardinalidade podem ser promovidas a fator em *"Tratar como fator"*.
+* **Bloco / repetição** (opcional) → delineamento em blocos.
+* **2º e 3º fator** (opcionais) → esquema fatorial com interações.
+* **Covariável** (opcional, numérica) → ANCOVA (médias ajustadas).
+
+O **delineamento é detectado automaticamente**:
+
+| Colunas mapeadas | Delineamento |
+|---|---|
+| Tratamento | **DIC** (inteiramente casualizado) |
+| Tratamento + bloco | **DBC** (blocos casualizados) |
+| Tratamento + 2º (e 3º) fator | **Fatorial** (com interações) |
+| Tratamento + linha + coluna | **Quadrado Latino** |
+
+**Delineamentos de erro composto** (expander próprio, com prioridade): **parcelas subdivididas** (split-plot), **faixas** (strip-plot) e **hierárquico** (nested) — cada um com seus múltiplos termos de erro e testes F com o denominador correto.
+
+Quatro abas de resultado:
+
+1. **ANOVA** — quadro completo (GL, SQ, QM, F, valor-p), **CV% experimental** e interpretação automática dos termos.
+2. **Pressupostos** — Shapiro-Wilk (normalidade dos resíduos) e Levene (homocedasticidade), com QQ-plot e gráfico de resíduos × ajustados.
+3. **Comparação de médias** — escolha do método: **Tukey, Scott-Knott, Duncan, Scheffé, LSD/DMS** (com letras de significância e gráfico de barras), ou **Dunnett** (cada tratamento vs. um controle). Em ANCOVA, as médias são ajustadas pela covariável.
+4. **Reprodutibilidade** — trecho do código + botão para **baixar o script Python** completo que reproduz a análise, além do CSV dos dados.
+
+### 12.2 Modo Regressão de doses
+
+Para um fator **quantitativo** (dose de adubo, lâmina de irrigação, densidade…): ajuste polinomial (linear, quadrático ou cúbico) com R², R² ajustado, significância do termo de maior grau e gráfico observado + curva ajustada.
+
+### 12.3 Modo Correlação
+
+Matriz de correlação de **Pearson** ou **Spearman** (heatmap + valores-p), com download, e **correlação parcial** (controlando por covariáveis).
+
+---
+
+## 13. Glossário estatístico
+
+Definições curtas dos termos técnicos usados no manual. Para aprofundamento, ver as Referências (§15).
 
 * **Anderson-Darling** — teste de normalidade sensível a desvios nas caudas. Devolve estatística A² e valor crítico a 5 %; rejeita se A² > crítico.
 * **Cramér's V** — medida de associação entre duas variáveis categóricas, no intervalo [0, 1]. V=1 indica equivalência perfeita; usado no app para detectar confundimento.
@@ -1080,7 +1151,7 @@ Definições curtas dos termos técnicos usados no manual. Para aprofundamento, 
 
 ---
 
-## 13. Solução de problemas (FAQ)
+## 14. Solução de problemas (FAQ)
 
 ### "Aparece `sidebar.rep.media` (ou outra chave crua) em vez do texto traduzido"
 
@@ -1116,7 +1187,7 @@ São diferentes mesmo — cada um pega uma medição específica da planilha. `R
 
 ---
 
-## 14. Referências
+## 15. Referências
 
 ### Métodos estatísticos
 
@@ -1149,11 +1220,11 @@ São diferentes mesmo — cada um pega uma medição específica da planilha. `R
 * Streamlit Inc. (2024). Streamlit. <https://streamlit.io>
 * Virtanen, P. et al. (2020). SciPy 1.0. *Nature Methods*, 17, 261-272.
 
-## 15. Contribuindo
+## 16. Contribuindo
 
 Encontrou um bug, tem uma sugestão de melhoria ou quer adicionar uma análise nova?
 
-### 15.1 Reportando bugs e propondo features
+### 16.1 Reportando bugs e propondo features
 
 Abra uma issue no repositório do projeto no GitHub. Inclua:
 
@@ -1162,13 +1233,13 @@ Abra uma issue no repositório do projeto no GitHub. Inclua:
 3. **Captura de tela** (se for um problema visual).
 4. **Trecho do dataset** (anonimizado) que dispara o problema, sempre que possível.
 
-### 15.2 Contribuindo com código
+### 16.2 Contribuindo com código
 
 * Veja [`docs/contributing.md`](contributing.md) para o fluxo de PRs e padrões de teste.
 * Veja [`docs/architecture.md`](architecture.md) para entender o layout dos módulos.
 * Veja [`docs/i18n.md`](i18n.md) para adicionar um novo idioma ou estender as traduções.
 
-### 15.3 Gerando este manual em PDF
+### 16.3 Gerando este manual em PDF
 
 A fonte canônica deste manual é o arquivo Markdown que você está lendo (`docs/manual.pt.md`). O PDF é um derivado, gerado por [pandoc](https://pandoc.org/) + XeLaTeX.
 
@@ -1202,7 +1273,7 @@ O workflow [`build-manual.yml`](../.github/workflows/build-manual.yml) gera o PD
 
 Os artifacts ficam disponíveis por 30 dias e podem ser baixados sem precisar instalar pandoc localmente.
 
-### 15.4 Traduzindo para outros idiomas
+### 16.4 Traduzindo para outros idiomas
 
 O esqueleto deste manual está pronto para receber espelhos em inglês e espanhol:
 
