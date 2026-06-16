@@ -66,7 +66,9 @@ def render():
         st.warning(t("modeling.warn_min_numeric"))
         return
 
-    default_target = "A" if "A" in all_columns else numeric_cols[0]
+    # "A" (fotossíntese) só é um default válido se for de fato numérica — em
+    # datasets genéricos pode existir uma coluna categórica chamada "A".
+    default_target = "A" if "A" in numeric_cols else numeric_cols[0]
     target = st.selectbox(t("modeling.target"), options=numeric_cols, index=numeric_cols.index(default_target))
 
     default_features = [column for column in MODEL_DEFAULT_FEATURES if column in all_columns and column != target]

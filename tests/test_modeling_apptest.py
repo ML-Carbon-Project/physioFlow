@@ -33,6 +33,31 @@ def _make_app():
     return AppTest.from_function(_app, kwargs={"path": str(PENGUINS)}, default_timeout=90)
 
 
+def _app_categorical_A():
+    """Dataset genérico com uma coluna CATEGÓRICA chamada 'A' (colisão com o
+    default de fisiologia 'A' = fotossíntese)."""
+    import pandas as pd
+    import streamlit as st
+
+    from src.pages.modeling import render
+
+    df = pd.DataFrame({
+        "A": ["x", "y", "z"] * 10,          # categórica, NÃO numérica
+        "blk": list(range(1, 31)),
+        "y": [float(i) + (i % 3) for i in range(30)],
+    })
+    st.session_state["df_raw"] = df
+    st.session_state["df_processed"] = df.copy()
+    render()
+
+
+def test_regression_does_not_crash_with_categorical_A_column():
+    # Regressão: o default de alvo "A" só vale se "A" for numérica; aqui é
+    # categórica → não pode quebrar (bug do numeric_cols.index('A')).
+    at = AppTest.from_function(_app_categorical_A, default_timeout=90).run()
+    assert not at.exception, at.exception
+
+
 @pytest.mark.skipif(not PENGUINS.exists(), reason="fixture penguins ausente")
 def test_regression_page_renders_headless():
     at = _make_app()
