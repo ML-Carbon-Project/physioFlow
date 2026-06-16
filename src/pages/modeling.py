@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+from src.components.charts import show_fig
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
@@ -248,7 +249,7 @@ def render():
         ax_pred.set_xlabel(t("modeling.chart.observed"))
         ax_pred.set_ylabel(t("modeling.chart.predicted"))
         ax_pred.set_title(chosen)
-        st.pyplot(fig_pred)
+        show_fig(fig_pred)
         plt.close(fig_pred)
         st.caption(t("modeling.predicted_caption"))
 
@@ -272,7 +273,7 @@ def render():
         ax_imp.set_title(t("modeling.importance_chart_title", n=len(importance_df)))
         ax_imp.set_xlabel(t("modeling.chart.importance"))
         ax_imp.set_ylabel("")
-        st.pyplot(fig_imp)
+        show_fig(fig_imp)
         plt.close(fig_imp)
 
 
@@ -501,7 +502,7 @@ def _render_classification(df: pd.DataFrame) -> None:
         ax_cm.set_xlabel(t("modeling.clf.predicted"))
         ax_cm.set_ylabel(t("modeling.clf.true"))
         ax_cm.set_title(chosen_label)
-        st.pyplot(fig_cm)
+        show_fig(fig_cm, fraction=0.65)
         plt.close(fig_cm)
         st.caption(t("modeling.clf.confusion_caption"))
 
@@ -529,5 +530,5 @@ def _render_classification(df: pd.DataFrame) -> None:
         ax_imp.set_title(t("modeling.importance_chart_title", n=len(importance_df)))
         ax_imp.set_xlabel(t("modeling.chart.importance"))
         ax_imp.set_ylabel("")
-        st.pyplot(fig_imp)
+        show_fig(fig_imp)
         plt.close(fig_imp)

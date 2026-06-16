@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
@@ -189,7 +190,7 @@ def _render_idw_section(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
         ax.set_ylabel(t("spatial.latitude"))
         ax.set_title(t("spatial.idw.title_dynamic", var=target))
         fig.colorbar(im, ax=ax, label=target)
-        st.pyplot(fig)
+        show_fig(fig)
         plt.close(fig)
     else:
         levels = sorted(work[facet_col].dropna().unique().tolist())
@@ -234,7 +235,7 @@ def _render_idw_section(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
             axes[r][c].axis("off")
 
         fig.suptitle(t("spatial.idw.title_facet", var=target, facet=facet_col), y=1.0)
-        st.pyplot(fig)
+        show_fig(fig)
         plt.close(fig)
 
 
@@ -332,7 +333,7 @@ def _render_moran_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax_scatter.set_ylabel(t("spatial.moran.scatter_y"))
     ax_scatter.set_title(t("spatial.moran.scatter_title"))
 
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     summary = (
@@ -430,7 +431,7 @@ def _render_gistar_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax.set_ylabel(t("spatial.latitude"))
     ax.set_title(t("spatial.gistar.map_title", var=target))
     ax.legend(loc="best", fontsize=9)
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     summary = (
@@ -509,7 +510,7 @@ def _render_utmgrid_section(df: pd.DataFrame, numeric_cols: list[str], cat_cols:
         merged.plot(column="value", cmap="viridis", legend=True, ax=ax, missing_kwds={"color": "#f1f5f9"}, edgecolor="white", linewidth=0.3)
         ax.set_title(t("spatial.utmgrid.title_dynamic", var=target, cell=cell_km, epsg=epsg))
         ax.set_axis_off()
-        st.pyplot(fig)
+        show_fig(fig)
         plt.close(fig)
         st.dataframe(agg.dropna().sort_values("value", ascending=False).head(50), use_container_width=True)
         st.download_button(
@@ -536,7 +537,7 @@ def _render_utmgrid_section(df: pd.DataFrame, numeric_cols: list[str], cat_cols:
             r, c = divmod(empty_idx, cols_per_row)
             axes[r][c].axis("off")
         fig.suptitle(t("spatial.utmgrid.title_facet", var=target, cell=cell_km), y=0.995)
-        st.pyplot(fig)
+        show_fig(fig)
         plt.close(fig)
 
 
@@ -671,7 +672,7 @@ def _render_kriging_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax_v.set_ylabel(t("spatial.kriging.semivariance"))
     ax_v.set_title(t("spatial.kriging.variogram_title", var=target))
     ax_v.legend()
-    st.pyplot(fig_v)
+    show_fig(fig_v)
     plt.close(fig_v)
 
     crs_label = f"EPSG:{epsg}" if epsg > 0 else t("spatial.crs.local_equirect")
@@ -717,7 +718,7 @@ def _render_kriging_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax_k.set_ylabel(t("spatial.latitude"))
     ax_k.set_title(t("spatial.kriging.surface_title", var=target))
     fig_k.colorbar(im, ax=ax_k, label=target)
-    st.pyplot(fig_k)
+    show_fig(fig_k)
     plt.close(fig_k)
 
 
@@ -772,7 +773,7 @@ def _render_basemap_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax.set_ylabel(t("spatial.latitude"))
     ax.set_title(t("spatial.basemap.title_dynamic", var=target))
     fig.colorbar(sc, ax=ax, label=target)
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
 

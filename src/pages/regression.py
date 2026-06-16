@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import REGRESSION_PRESETS
@@ -81,7 +82,7 @@ def render():
                     line_kws={"linewidth": 2},
                 )
             grid.fig.suptitle(selected_label, y=1.02)
-            st.pyplot(grid.fig)
+            show_fig(grid.fig)
 
     st.markdown(f"#### {t('regression.custom_title')}")
     default_x = "gs" if "gs" in numeric_cols else numeric_cols[0]
@@ -137,7 +138,7 @@ def render():
 
     grid = sns.lmplot(**lm_kwargs)
     grid.fig.suptitle(t("regression.title_dynamic", x=x_var, y=y_var), y=1.02)
-    st.pyplot(grid.fig)
+    show_fig(grid.fig)
 
     corr = plot_df[[x_var, y_var]].corr().iloc[0, 1]
     st.caption(t("regression.caption_corr", x=x_var, y=y_var, corr=f"{corr:.4f}", n=len(plot_df)))

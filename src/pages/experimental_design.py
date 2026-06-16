@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import PRIMARY_COLOR
@@ -279,7 +280,7 @@ def _render_assumptions_tab(result, df_clean: pd.DataFrame, treatment: str, resp
     axes[1].set_xlabel(t("exp.assumptions.fitted"))
     axes[1].set_ylabel(t("exp.assumptions.residuals"))
     axes[1].set_title(t("exp.assumptions.resid_title"))
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
 
@@ -363,7 +364,7 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
     ax.set_xlabel(factor)
     ax.set_title(t("exp.compare.plot_title", var=response, factor=factor))
     plt.xticks(rotation=30, ha="right")
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     st.download_button(
@@ -705,7 +706,7 @@ def _render_dose_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     ax.set_ylabel(response)
     ax.set_title(t("exp.dose.plot_title", y=response, x=dose))
     ax.legend()
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
 
@@ -744,7 +745,7 @@ def _render_correlation_mode(df: pd.DataFrame, numeric_cols: list[str]) -> None:
             ax.text(j, i, f"{res.corr.iloc[i, j]:.2f}", ha="center", va="center", fontsize=8)
     fig.colorbar(im, ax=ax, shrink=0.8)
     ax.set_title(t("exp.corr.heatmap_title", method=method.capitalize()))
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     st.download_button(

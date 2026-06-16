@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
@@ -73,7 +74,7 @@ def _render_aggregate_tab(df: pd.DataFrame, date_col: str, numeric_cols: list[st
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     fig.autofmt_xdate()
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
 
@@ -157,7 +158,7 @@ def _render_stl_tab(df: pd.DataFrame, date_col: str, numeric_cols: list[str]) ->
     axes[3].set_xlabel(t("timeseries.agg.x"))
     fig.suptitle(t("timeseries.stl.title_dynamic", var=target, period=period), y=0.995)
     fig.autofmt_xdate()
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     obs_var = float(np.var(series.values))

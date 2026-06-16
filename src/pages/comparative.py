@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
@@ -173,7 +174,7 @@ def _render_loglinear_tab(df: pd.DataFrame, group_col: str, numeric_cols: list[s
     ax.set_ylabel(t("comparative.loglinear.y_label", var=y_col))
     ax.set_title(t("comparative.loglinear.title_dynamic", x=x_col, y=y_col))
     ax.legend()
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     if rows:
@@ -246,7 +247,7 @@ def _render_hourly_tab(df: pd.DataFrame, group_col: str, numeric_cols: list[str]
     axes[1].set_ylabel(t("comparative.hourly.y_cumulative", var=y_col))
     axes[1].set_title(t("comparative.hourly.cumulative_title", var=y_col))
     axes[1].legend()
-    st.pyplot(fig)
+    show_fig(fig)
     plt.close(fig)
 
     st.dataframe(hourly, use_container_width=True)

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import EDA_DEFAULT_DISTRIBUTION_COLUMNS, EDA_DEFAULT_PAIR_COLUMNS
@@ -104,7 +105,7 @@ def render():
             )
             ax_missing.tick_params(axis="x", rotation=45)
             ax_missing.set_title(t("eda.quality.missing_chart_title"))
-            st.pyplot(fig_missing)
+            show_fig(fig_missing)
             plt.close(fig_missing)
 
         if cat_cols:
@@ -168,7 +169,7 @@ def render():
             fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
             sns.histplot(df[column].dropna(), bins=bins, kde=show_kde, color="#0f766e", ax=ax_hist)
             ax_hist.set_title(t("eda.bivariate.dist_title", col=column))
-            st.pyplot(fig_hist)
+            show_fig(fig_hist)
             plt.close(fig_hist)
 
     # ---------------- Tab 3: boxplots / violin ----------------
@@ -205,7 +206,7 @@ def render():
                         plot_func(data=plot_df, x=x_cat, y=target, color="#5fb49c", ax=ax_box)
                     ax_box.tick_params(axis="x", rotation=45)
                     ax_box.set_title(t("eda.boxplot.title_dynamic", target=target, x=x_cat))
-                    st.pyplot(fig_box)
+                    show_fig(fig_box)
                     plt.close(fig_box)
                 except Exception as e:
                     st.error(f"Erro ao renderizar o gráfico: {e}")
@@ -246,7 +247,7 @@ def render():
                     palette="viridis",
                 )
             grid.fig.suptitle(t("eda.scatter.title_dynamic"), y=1.02)
-            st.pyplot(grid.fig)
+            show_fig(grid.fig)
 
     # ---------------- Tab 5: correlation ----------------
     with tab5:
@@ -275,7 +276,7 @@ def render():
             fig_corr, ax_corr = plt.subplots(figsize=(8, 6))
             sns.heatmap(corr_df, annot=True, cmap="coolwarm", ax=ax_corr)
             ax_corr.set_title(t("eda.corr.title_dynamic", method=method_label))
-            st.pyplot(fig_corr)
+            show_fig(fig_corr)
             st.dataframe(corr_df, use_container_width=True)
             st.download_button(
                 t("eda.corr.download"),
@@ -310,7 +311,7 @@ def render():
                     ax=ax_map,
                 )
                 ax_map.set_title(t("eda.spatial.title_dynamic", var=map_var))
-                st.pyplot(fig_map)
+                show_fig(fig_map)
             else:
                 grid = sns.relplot(
                     data=df,
@@ -327,7 +328,7 @@ def render():
                     aspect=1,
                 )
                 grid.figure.suptitle(t("eda.spatial.title_facet", var=map_var, facet=facet_col), y=1.02)
-                st.pyplot(grid.figure)
+                show_fig(grid.figure)
 
     # ---------------- Tab 7: temporal (NEW) ----------------
     with tab7:
@@ -376,7 +377,7 @@ def render():
                         sns.lineplot(data=series, x=date_col, y=var, hue=hue_col, marker="o", palette="viridis", ax=ax_ts)
                     ax_ts.set_title(t("eda.temporal.title_dynamic", var=var))
                     ax_ts.tick_params(axis="x", rotation=30)
-                    st.pyplot(fig_ts)
+                    show_fig(fig_ts)
                     plt.close(fig_ts)
             except Exception as e:
                 st.error(f"Erro ao processar análise temporal: {e}")
@@ -408,7 +409,7 @@ def render():
             ax_bar.set_title(t("eda.composition.title_dynamic", col=comp_col))
             ax_pie.pie(counts.values, labels=counts.index.astype(str), autopct="%1.1f%%", colors=sns.color_palette("viridis", len(counts)))
             ax_pie.set_title(t("eda.composition.title_dynamic", col=comp_col))
-            st.pyplot(fig_comp)
+            show_fig(fig_comp)
             plt.close(fig_comp)
 
     # ---------------- Tab 9: inference (Kruskal-Wallis) ----------------
@@ -588,7 +589,7 @@ def render():
                             r, c = divmod(empty_idx, cols_per_row)
                             axes_qq[r][c].axis("off")
                         fig_qq.tight_layout()
-                        st.pyplot(fig_qq)
+                        show_fig(fig_qq, fraction=1.0)
                         plt.close(fig_qq)
 
             st.markdown("---")
@@ -714,7 +715,7 @@ def render():
             ax_h.set_xlabel(t("eda.hotspots.x_label", agg=agg_label, var=target))
             ax_h.set_ylabel(group_col)
             ax_h.set_title(t("eda.hotspots.title_dynamic", var=target, group=group_col))
-            st.pyplot(fig_h)
+            show_fig(fig_h)
             plt.close(fig_h)
 
     # ---------------- Tab 11: outliers (multi-method) ----------------
@@ -810,5 +811,5 @@ def render():
                 ax_o.set_ylabel(t("eda.outliers.count"))
                 ax_o.set_title(t("eda.outliers.summary_title"))
                 ax_o.tick_params(axis="x", rotation=20)
-                st.pyplot(fig_o)
+                show_fig(fig_o)
                 plt.close(fig_o)
