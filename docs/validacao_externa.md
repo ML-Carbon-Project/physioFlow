@@ -23,6 +23,8 @@ localmente; o Rbio é só-Windows, mas o R base + CRAN estão disponíveis). Usa
 | Análise | Termo | PhysioFlow | R |
 |---|---|---|---|
 | Split-plot (oats) | gen / nitro / gen×nitro F | 1,485 / 37,686 / 0,303 | idem |
+| Faixas (strip-plot) | A / B / A×B F (gl erros 4/6/12) | 18,08 / 22,03 / 1,593 | idem |
+| Hierárquico (nested) | A vs B(A) / B(A) vs resíduo F | 67,81 / 3,430 (gl 3/8/48) | idem |
 | ANCOVA (penguins) | flipper(cov) F / species F / slope | 175,687 / 18,393 / 40,7054 | idem |
 | ANCOVA — médias ajustadas | Adelie/Chinstrap/Gentoo | 4147 / 3940 / 4414 | idem (`emmeans`) |
 | Fatorial tipo II (penguins) | species / sex / interação F | 749,0 / 387,5 / 8,757 | idem |

@@ -24,9 +24,12 @@ from src.stats_utils import (
     clean_factor_levels,
     compare_means,
     correlation_analysis,
+    dunnett_test,
     fit_dose_response,
     fit_experimental_anova,
+    fit_nested,
     fit_split_plot,
+    fit_strip_plot,
     homoscedasticity_test,
     normality_test,
     partial_correlation,
@@ -83,6 +86,7 @@ _METHOD_LABELS = {
     "duncan": "Duncan",
     "lsd": "LSD / DMS (Fisher)",
     "scheffe": "Scheffé",
+    "dunnett": "Dunnett (vs controle)",
 }
 
 # Função de src.stats_utils que implementa cada método (citada no script gerado).
@@ -289,10 +293,33 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
     )
     method_label = col2.selectbox(
         t("exp.compare.method"),
-        options=["tukey", "scott-knott", "duncan", "lsd", "scheffe"],
+        options=["tukey", "scott-knott", "duncan", "lsd", "scheffe", "dunnett"],
         format_func=lambda m: _METHOD_LABELS.get(m, m),
         key="exp_compare_method",
     )
+
+    # Dunnett: cada tratamento vs um controle — fluxo próprio (sem letras).
+    if method_label == "dunnett":
+        levels = sorted(df_clean[factor].dropna().astype(str).unique().tolist())
+        control = st.selectbox(t("exp.compare.control"), options=levels, key="exp_dunnett_control")
+        dtable = dunnett_test(df_clean, response, factor, control)
+        if dtable.empty:
+            st.info(t("exp.compare.no_data"))
+            return method_label
+        st.caption(t("exp.compare.dunnett_note", control=control))
+        show = dtable.assign(
+            differs=dtable["differs"].map(lambda v: "✅" if v else "—"),
+            p_value=dtable["p_value"].map(_format_p),
+        ).rename(columns={
+            "group": t("exp.compare.col.group"), "mean": t("exp.compare.col.mean"),
+            "diff_vs_control": t("exp.compare.col.diff"), "p_value": t("exp.anova.col.p"),
+            "differs": t("exp.compare.col.differs"),
+        })[[t("exp.compare.col.group"), "n", t("exp.compare.col.mean"),
+            t("exp.compare.col.diff"), t("exp.anova.col.p"), t("exp.compare.col.differs")]]
+        st.dataframe(show.style.format({
+            t("exp.compare.col.mean"): "{:.4f}", t("exp.compare.col.diff"): "{:+.4f}",
+        }), use_container_width=True, hide_index=True)
+        return method_label
 
     # ANCOVA: compara médias AJUSTADAS pela covariável (só no fator tratamento).
     use_adjusted = bool(result.adjusted_means) and factor == result.factor_terms[0]
@@ -455,22 +482,47 @@ def _render_design_mode(df: pd.DataFrame, numeric_cols: list[str], cat_cols: lis
     row = None if row_choice == none_label else row_choice
     column = None if col_choice == none_label else col_choice
 
-    with st.expander(t("exp.config.split_plot"), expanded=False):
-        st.caption(t("exp.config.split_help"))
-        sp1, sp2, sp3 = st.columns(3)
-        sp_whole_c = sp1.selectbox(t("exp.config.split_whole"), options=[none_label] + factor_cols, key="exp_sp_whole")
-        sp_sub_c = sp2.selectbox(t("exp.config.split_sub"), options=[none_label] + factor_cols, key="exp_sp_sub")
-        sp_block_c = sp3.selectbox(t("exp.config.split_block"), options=[none_label] + factor_cols, key="exp_sp_block")
-    sp_whole = None if sp_whole_c == none_label else sp_whole_c
-    sp_sub = None if sp_sub_c == none_label else sp_sub_c
-    sp_block = None if sp_block_c == none_label else sp_block_c
+    # Delineamentos de erro composto (split-plot / faixas / hierárquico) têm
+    # prioridade e fluxo próprio (múltiplos termos de erro).
+    with st.expander(t("exp.config.composite"), expanded=False):
+        st.caption(t("exp.config.composite_help"))
+        comp_type = st.selectbox(
+            t("exp.config.composite_type"),
+            options=["none", "split", "strip", "nested"],
+            format_func=lambda k: t(f"exp.config.composite.{k}"),
+            key="exp_comp_type",
+        )
+        ca, cb, cc = st.columns(3)
+        if comp_type == "split":
+            a = ca.selectbox(t("exp.config.split_whole"), [none_label] + factor_cols, key="exp_sp_whole")
+            b = cb.selectbox(t("exp.config.split_sub"), [none_label] + factor_cols, key="exp_sp_sub")
+            c = cc.selectbox(t("exp.config.split_block"), [none_label] + factor_cols, key="exp_sp_block")
+        elif comp_type == "strip":
+            a = ca.selectbox(t("exp.config.strip_a"), [none_label] + factor_cols, key="exp_st_a")
+            b = cb.selectbox(t("exp.config.strip_b"), [none_label] + factor_cols, key="exp_st_b")
+            c = cc.selectbox(t("exp.config.split_block"), [none_label] + factor_cols, key="exp_st_block")
+        elif comp_type == "nested":
+            a = ca.selectbox(t("exp.config.nested_a"), [none_label] + factor_cols, key="exp_ne_a")
+            b = cb.selectbox(t("exp.config.nested_b"), [none_label] + factor_cols, key="exp_ne_b")
+            c = none_label
+        else:
+            a = b = c = none_label
 
-    # Parcelas subdivididas têm prioridade e fluxo próprio (dois termos de erro).
-    if sp_whole and sp_sub and sp_block:
-        if len({sp_whole, sp_sub, sp_block}) < 3:
-            st.error(t("exp.config.split_clash"))
+    if comp_type in ("split", "strip", "nested"):
+        picks = [x for x in (a, b, c) if x != none_label]
+        needed = 2 if comp_type == "nested" else 3
+        if len(picks) < needed:
+            st.info(t("exp.config.composite_pick"))
             return
-        _render_split_plot(df, response, sp_whole, sp_sub, sp_block)
+        if len(set(picks)) < len(picks):
+            st.error(t("exp.config.composite_clash"))
+            return
+        if comp_type == "split":
+            _render_split_plot(df, response, a, b, c)
+        elif comp_type == "strip":
+            _render_strip_plot(df, response, a, b, c)
+        else:
+            _render_nested(df, response, a, b)
         return
 
     if row and column:
@@ -562,6 +614,54 @@ def _render_split_plot(df: pd.DataFrame, response: str, whole: str, sub: str, bl
         file_name="split_plot_anova.csv",
         mime="text/csv",
     )
+    st.info(t("exp.split.posthoc_note"))
+
+
+def _render_composite_table(table: pd.DataFrame, file_stem: str) -> None:
+    """Renderiza o quadro de ANOVA de um delineamento de erro composto."""
+    display = table.copy()
+    display["p_value"] = display["p_value"].map(_format_p)
+    display = display.rename(columns={
+        "df": t("exp.anova.col.df"), "sum_sq": t("exp.anova.col.sq"),
+        "mean_sq": t("exp.anova.col.ms"), "F": "F", "p_value": t("exp.anova.col.p"),
+    })
+    st.dataframe(
+        display.style.format({
+            t("exp.anova.col.df"): "{:.0f}", t("exp.anova.col.sq"): "{:.4f}",
+            t("exp.anova.col.ms"): "{:.4f}", "F": "{:.3f}",
+        }, na_rep="—"),
+        use_container_width=True,
+    )
+    st.download_button(
+        t("exp.anova.download"),
+        data=table.to_csv().encode("utf-8-sig"),
+        file_name=f"{file_stem}.csv", mime="text/csv",
+    )
+
+
+def _render_strip_plot(df: pd.DataFrame, response: str, factor_a: str, factor_b: str, block: str) -> None:
+    try:
+        res = fit_strip_plot(df, response, factor_a, factor_b, block)
+    except ValueError as exc:
+        st.error(t("exp.error_fit", msg=str(exc)))
+        return
+    st.success(t("exp.detected", design=t("exp.design.strip")))
+    st.metric(t("exp.metric.n"), res.n_obs)
+    _render_composite_table(res.table, "faixas_anova")
+    st.caption(t("exp.strip.legend", a=factor_a, b=factor_b))
+    st.info(t("exp.split.posthoc_note"))
+
+
+def _render_nested(df: pd.DataFrame, response: str, factor_a: str, factor_b: str) -> None:
+    try:
+        res = fit_nested(df, response, factor_a, factor_b)
+    except ValueError as exc:
+        st.error(t("exp.error_fit", msg=str(exc)))
+        return
+    st.success(t("exp.detected", design=t("exp.design.nested")))
+    st.metric(t("exp.metric.n"), res.n_obs)
+    _render_composite_table(res.table, "hierarquico_anova")
+    st.caption(t("exp.nested.legend", a=factor_a, b=factor_b))
     st.info(t("exp.split.posthoc_note"))
 
 

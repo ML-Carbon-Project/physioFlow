@@ -704,6 +704,44 @@ def duncan_groups(
     return _compact_letter_display(means, not_different)
 
 
+def dunnett_test(
+    df: pd.DataFrame, response: str, factor: str, control: str, alpha: float = 0.05
+) -> pd.DataFrame:
+    """Teste de Dunnett: cada tratamento vs um controle (não usa letras).
+
+    Devolve uma tabela com média, diferença para o controle, valor-p (bicaudal)
+    e se difere do controle. Usa ``scipy.stats.dunnett`` (distribuição t
+    multivariada — o ajuste correto para comparações com um controle).
+    """
+    from scipy.stats import dunnett
+
+    groups = group_means(df, response, factor)
+    levels = groups["group"].tolist()
+    if control not in levels or len(levels) < 2:
+        return pd.DataFrame()
+
+    control_vals = df.loc[df[factor].astype(str) == control, response].dropna().to_numpy()
+    others = [lvl for lvl in levels if lvl != control]
+    samples = [df.loc[df[factor].astype(str) == lvl, response].dropna().to_numpy() for lvl in others]
+
+    res = dunnett(*samples, control=control_vals, alternative="two-sided")
+    mean_map = dict(zip(groups["group"], groups["mean"]))
+    n_map = dict(zip(groups["group"], groups["n"]))
+    ctrl_mean = mean_map[control]
+    rows = [{
+        "group": control, "n": n_map[control], "mean": ctrl_mean,
+        "diff_vs_control": 0.0, "p_value": float("nan"), "is_control": True,
+        "differs": False,
+    }]
+    for lvl, stat, p in zip(others, res.statistic, res.pvalue):
+        rows.append({
+            "group": lvl, "n": n_map[lvl], "mean": mean_map[lvl],
+            "diff_vs_control": float(mean_map[lvl] - ctrl_mean),
+            "p_value": float(p), "is_control": False, "differs": bool(p < alpha),
+        })
+    return pd.DataFrame(rows).sort_values("mean", ascending=False).reset_index(drop=True)
+
+
 # Despachante de métodos de comparação de médias.
 MEAN_COMPARISON_METHODS: dict[str, object] = {
     "tukey": tukey_groups,
@@ -847,6 +885,134 @@ def fit_split_plot(
         cv_b_percent=float(sqrt(ms_eb) / abs(grand_mean) * 100.0),
         residuals=model.resid.to_numpy(),
         fitted=model.fittedvalues.to_numpy(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Faixas (strip-plot) e hierárquico (nested) — delineamentos de erro composto.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CompositeAnova:
+    """Quadro de ANOVA de delineamento com múltiplos termos de erro."""
+
+    design: str
+    table: pd.DataFrame          # fonte de variação × (df, sum_sq, mean_sq, F, p_value)
+    formula: str
+    n_obs: int
+    grand_mean: float
+    residuals: np.ndarray
+    fitted: np.ndarray
+
+
+def _fit_composite(df, response, factor_cols, rename, formula, design, f_tests):
+    """Helper: ajusta OLS, monta o quadro e aplica testes F com erro escolhido.
+
+    ``f_tests`` mapeia termo testado → termo de erro (ambos no índice do anova_lm).
+    Linhas sem teste explícito ficam com F/p = NaN (termos de erro/bloco).
+    """
+    import statsmodels.api as sm
+    from statsmodels.formula.api import ols
+    from scipy import stats as sps
+
+    work = df[[response] + factor_cols].dropna().copy()
+    work = clean_factor_levels(work, factor_cols)
+    work = work.rename(columns=rename)
+    for c in rename.values():
+        if c != "y":
+            work[c] = work[c].astype(str)
+
+    model = ols(formula, data=work).fit()
+    aov = sm.stats.anova_lm(model, typ=1)
+
+    ms = {term: float(aov.loc[term, "sum_sq"]) / float(aov.loc[term, "df"]) for term in aov.index}
+    nan = float("nan")
+    rows = []
+    for term in aov.index:
+        f_val = p_val = nan
+        if term in f_tests:
+            err = f_tests[term]
+            f_val = ms[term] / ms[err]
+            p_val = float(sps.f.sf(f_val, float(aov.loc[term, "df"]), float(aov.loc[err, "df"])))
+        rows.append({
+            "source": term, "df": float(aov.loc[term, "df"]),
+            "sum_sq": float(aov.loc[term, "sum_sq"]), "mean_sq": ms[term],
+            "F": f_val, "p_value": p_val,
+        })
+    table = pd.DataFrame(rows).set_index("source")
+    return CompositeAnova(
+        design=design, table=table, formula=formula, n_obs=int(len(work)),
+        grand_mean=float(work["y"].mean()),
+        residuals=model.resid.to_numpy(), fitted=model.fittedvalues.to_numpy(),
+    )
+
+
+def fit_strip_plot(df, response, factor_a, factor_b, block) -> CompositeAnova:
+    """Faixas (strip-plot/split-block): A e B em faixas cruzadas, 3 erros.
+
+    A é testado vs Erro(a)=bloco×A; B vs Erro(b)=bloco×B; A×B vs Erro(c)=resíduo.
+    Pressupõe dados balanceados em blocos.
+    """
+    rename = {response: "y", factor_a: "A", factor_b: "B", block: "blk"}
+    formula = "y ~ C(blk) + C(A) + C(blk):C(A) + C(B) + C(blk):C(B) + C(A):C(B)"
+    res = _fit_composite(
+        df, response, [factor_a, factor_b, block], rename, formula, "Faixas",
+        f_tests={"C(A)": "C(blk):C(A)", "C(B)": "C(blk):C(B)", "C(A):C(B)": "Residual"},
+    )
+    names = {"C(blk)": block, "C(A)": factor_a, "C(B)": factor_b,
+             "C(blk):C(A)": "Erro(a)", "C(blk):C(B)": "Erro(b)",
+             "C(A):C(B)": f"{factor_a} × {factor_b}", "Residual": "Erro(c)"}
+    res.table.index = [names.get(i, i) for i in res.table.index]
+    return res
+
+
+def fit_nested(df, response, factor_a, factor_b) -> CompositeAnova:
+    """Hierárquico (nested): B aninhado em A. A é testado vs B(A); B(A) vs resíduo.
+
+    O fator aninhado recebe um rótulo único ``A::B`` antes do ajuste, garantindo
+    a decomposição correta mesmo quando os níveis de B se repetem entre níveis de
+    A (ex.: subamostras 1,2,3 dentro de cada A).
+    """
+    from scipy import stats as sps
+
+    work = df[[response, factor_a, factor_b]].dropna().copy()
+    work = clean_factor_levels(work, [factor_a, factor_b])
+    work = work.rename(columns={response: "y", factor_a: "A", factor_b: "B"})
+    work["A"] = work["A"].astype(str)
+    work["AB"] = work["A"] + " :: " + work["B"].astype(str)  # rótulo aninhado único
+
+    # Decomposição nested clássica por somas de quadrados (exata; evita as
+    # armadilhas de codificação do patsy para fatores aninhados).
+    y = work["y"].to_numpy(dtype=float)
+    n_obs = len(work)
+    grand = float(y.mean())
+    n_a = work["A"].nunique()
+    n_ab = work["AB"].nunique()
+    if n_a < 2 or n_ab <= n_a or n_obs <= n_ab:
+        raise ValueError("Dados insuficientes para o delineamento hierárquico.")
+
+    ss_total = float(((y - grand) ** 2).sum())
+    ss_a = float(work.groupby("A")["y"].apply(lambda s: len(s) * (s.mean() - grand) ** 2).sum())
+    ab_means = work.groupby("AB")["y"].transform("mean")
+    ss_ab = float(((ab_means - grand) ** 2).sum())   # entre subgrupos
+    ss_ba = ss_ab - ss_a                              # B dentro de A
+    ss_resid = ss_total - ss_ab
+
+    df_a, df_ba, df_resid = n_a - 1, n_ab - n_a, n_obs - n_ab
+    ms_a, ms_ba, ms_resid = ss_a / df_a, ss_ba / df_ba, ss_resid / df_resid
+    f_a, f_ba = ms_a / ms_ba, ms_ba / ms_resid
+    nan = float("nan")
+    rows = [
+        (factor_a, df_a, ss_a, ms_a, f_a, float(sps.f.sf(f_a, df_a, df_ba))),
+        (f"{factor_b} ({factor_a})", df_ba, ss_ba, ms_ba, f_ba, float(sps.f.sf(f_ba, df_ba, df_resid))),
+        ("Erro", df_resid, ss_resid, ms_resid, nan, nan),
+    ]
+    table = pd.DataFrame(rows, columns=["source", "df", "sum_sq", "mean_sq", "F", "p_value"]).set_index("source")
+    residuals = (work["y"] - ab_means).to_numpy()
+    return CompositeAnova(
+        design="Hierárquico", table=table, formula="y ~ A + B(A) (nested)", n_obs=n_obs,
+        grand_mean=grand, residuals=residuals, fitted=ab_means.to_numpy(),
     )
 
 
@@ -1001,6 +1167,7 @@ __all__ = [
     "ConfoundingPair",
     "ExperimentalAnova",
     "AssumptionResult",
+    "CompositeAnova",
     "CorrelationResult",
     "DoseResponse",
     "SplitPlotAnova",
@@ -1012,9 +1179,12 @@ __all__ = [
     "cramers_v",
     "detect_confounded_pairs",
     "duncan_groups",
+    "dunnett_test",
     "fit_dose_response",
     "fit_experimental_anova",
+    "fit_nested",
     "fit_split_plot",
+    "fit_strip_plot",
     "group_means",
     "partial_correlation",
     "homoscedasticity_test",

@@ -252,6 +252,61 @@ class TestAdditionalComparisonMethods:
             assert table["group_letter"].notna().all()
 
 
+class TestCompositeDesigns:
+    """Strip-plot e nested — valores de referência conferidos contra o R (aov)."""
+
+    def _strip_df(self):
+        rng = np.random.default_rng(42)
+        rows = []
+        for blk in range(1, 4):
+            for ai, a in enumerate("abc", 1):
+                for bi, b in enumerate("ABCD", 1):
+                    y = 10 + ai * 2 + bi * 1.5 + blk * 0.5 + rng.normal(0, 1)
+                    rows.append({"blk": str(blk), "A": a, "B": b, "y": y})
+        return pd.DataFrame(rows)
+
+    def test_strip_plot_three_error_terms(self):
+        from src.stats_utils import fit_strip_plot
+        res = fit_strip_plot(self._strip_df(), "y", "A", "B", "blk")
+        t = res.table
+        assert t.loc["Erro(a)", "df"] == 4 and t.loc["Erro(b)", "df"] == 6 and t.loc["Erro(c)", "df"] == 12
+        assert t.loc["A", "F"] > 1 and t.loc["B", "F"] > 1     # ambos significativos no design
+        assert t.loc["A", "p_value"] < 0.05 and t.loc["B", "p_value"] < 0.05
+
+    def test_nested_decomposition_df_sums_to_total(self):
+        from src.stats_utils import fit_nested
+        rng = np.random.default_rng(7)
+        rows = []
+        for a in range(1, 5):
+            for b in range(1, 4):
+                for _ in range(5):
+                    rows.append({"A": str(a), "B": f"{a}_{b}", "y": 10 + a * 3 + b * 0.5 + rng.normal(0, 1)})
+        df = pd.DataFrame(rows)
+        res = fit_nested(df, "y", "A", "B")
+        t = res.table
+        ba = next(i for i in t.index if i.startswith("B ("))
+        assert t.loc["A", "df"] == 3 and t.loc[ba, "df"] == 8 and t.loc["Erro", "df"] == 48
+        assert int(t["df"].sum()) == len(df) - 1            # gl fecham (3+8+48=59)
+        # A testado vs B(A): F alto; B(A) vs resíduo: significativo
+        assert t.loc["A", "F"] > 10 and t.loc[ba, "p_value"] < 0.05
+
+
+class TestDunnett:
+    def test_each_treatment_vs_control(self):
+        from src.stats_utils import dunnett_test
+        rng = np.random.default_rng(1)
+        rows = []
+        for trt, base in (("ctrl", 10.0), ("t1", 10.2), ("t2", 16.0)):
+            for _ in range(8):
+                rows.append({"trt": trt, "y": base + rng.normal(0, 0.6)})
+        df = pd.DataFrame(rows)
+        out = dunnett_test(df, "y", "trt", control="ctrl")
+        d = dict(zip(out["group"], out["differs"]))
+        assert d["t2"] is True            # bem distante do controle
+        assert d["t1"] is False           # colado no controle
+        assert (out.loc[out["group"] == "ctrl", "diff_vs_control"] == 0).all()
+
+
 class TestDoseResponse:
     def _dose_df(self, b0=5.0, b1=2.0, b2=-0.1, noise=0.3):
         rng = np.random.default_rng(11)
