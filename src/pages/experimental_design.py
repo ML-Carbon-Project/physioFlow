@@ -67,6 +67,15 @@ _DESIGN_LABEL_KEYS = {
     "Quadrado Latino": "exp.design.latin_square",
 }
 
+# Rótulos curtos para o st.metric (o nome completo fica no banner "detectado").
+_DESIGN_SHORT_KEYS = {
+    "DIC": "exp.design_short.dic",
+    "DBC": "exp.design_short.dbc",
+    "Fatorial": "exp.design_short.factorial",
+    "Fatorial+Bloco": "exp.design_short.factorial_block",
+    "Quadrado Latino": "exp.design_short.latin_square",
+}
+
 # Rótulos dos métodos de comparação de médias (nomes próprios, não traduzidos).
 _METHOD_LABELS = {
     "tukey": "Tukey HSD",
@@ -176,7 +185,7 @@ print("Levene (homocedasticidade):", stats.levene(*groups, center="median"))
 def _render_anova_tab(result, df_clean: pd.DataFrame) -> None:
     st.markdown(f"#### {t('exp.anova.title')}")
     c1, c2, c3 = st.columns(3)
-    c1.metric(t("exp.metric.design"), t(_DESIGN_LABEL_KEYS.get(result.design, result.design)))
+    c1.metric(t("exp.metric.design"), t(_DESIGN_SHORT_KEYS.get(result.design, result.design)))
     c2.metric(t("exp.metric.cv"), f"{result.cv_percent:.2f}%")
     c3.metric(t("exp.metric.n"), result.n_obs)
 

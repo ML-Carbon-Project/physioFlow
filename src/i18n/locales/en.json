@@ -743,5 +743,10 @@
   "pipeline.generic.group_cols": "Grouping columns (unit key)",
   "pipeline.generic.agg_method": "Aggregation method",
   "pipeline.generic.reps_found": "{n} repetitions detected — consolidated into one row per group.",
-  "pipeline.generic.reps_none": "No repetitions in these columns — data passes through unchanged."
+  "pipeline.generic.reps_none": "No repetitions in these columns — data passes through unchanged.",
+  "exp.design_short.dic": "CRD",
+  "exp.design_short.dbc": "RCBD",
+  "exp.design_short.factorial": "Factorial",
+  "exp.design_short.factorial_block": "Factorial + Block",
+  "exp.design_short.latin_square": "Latin Square"
 }

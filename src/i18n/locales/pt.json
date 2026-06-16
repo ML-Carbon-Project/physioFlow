@@ -743,5 +743,10 @@
   "pipeline.generic.group_cols": "Colunas de agrupamento (chave da unidade)",
   "pipeline.generic.agg_method": "Método de agregação",
   "pipeline.generic.reps_found": "{n} repetições detectadas — consolidadas em uma linha por grupo.",
-  "pipeline.generic.reps_none": "Nenhuma repetição nessas colunas — os dados passam sem alteração."
+  "pipeline.generic.reps_none": "Nenhuma repetição nessas colunas — os dados passam sem alteração.",
+  "exp.design_short.dic": "DIC",
+  "exp.design_short.dbc": "DBC",
+  "exp.design_short.factorial": "Fatorial",
+  "exp.design_short.factorial_block": "Fatorial + Bloco",
+  "exp.design_short.latin_square": "Quadrado Latino"
 }
