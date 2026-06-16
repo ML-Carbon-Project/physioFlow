@@ -21,3 +21,21 @@ docs/manual.*.pdf
 
 # Material de referência (PDFs/artigos pesados; não versionar)
 artigos_base/
+
+# Configuração local do editor / Claude Code (não é material do projeto)
+.claude/
+
+# Dados de pesquisa proprietários — não versionar.
+# As fixtures públicas para testes ficam em data/sample/test/.
+data/sample/0_Dados_Fisiologia_RIO VERDE.xlsx
+
+# Artefatos de build do LaTeX (só o .tex/.bib/figuras é que importam)
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
