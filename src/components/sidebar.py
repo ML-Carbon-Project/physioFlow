@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
-import pandas as pd
 import streamlit as st
 from streamlit_option_menu import option_menu
 
 from src.auth import logout
-from src.config.settings import APP_SIDEBAR_TITLE, NAVIGATION_ITEMS, PRIMARY_COLOR, SIDEBAR_CSS
+from src.config.settings import NAVIGATION_ITEMS, PRIMARY_COLOR, SIDEBAR_CSS
 from src.i18n import AVAILABLE_LANGUAGES, get_language, set_language, t
-from src.pipeline import clean_fisiologia_data, find_first_existing
-from src.state import get_raw_dataframe, set_processed_dataset
 
 
 def _render_language_selector() -> None:
