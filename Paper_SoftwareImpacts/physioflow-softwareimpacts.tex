@@ -6,7 +6,7 @@
 
 \documentclass[11pt, letterpaper]{article}
 \usepackage[utf8]{inputenc}
-\usepackage[margin=2cm]{geometry}
+\usepackage[margin=1.5cm]{geometry}
 \usepackage{titlesec}
 \usepackage{amssymb}
 \usepackage{graphicx}
@@ -65,7 +65,7 @@ C1 & Current code version & v1.0 \\
 \hline
 C2 & Permanent link to code/repository used for this code version & \url{https://github.com/ML-Carbon-Project/physioFlow} \\
 \hline
-C3 & Permanent link to reproducible capsule & \url{https://github.com/ML-Carbon-Project/physioFlow} \\
+C3 & Permanent link to Reproducible Capsule & \url{https://github.com/ML-Carbon-Project/physioFlow} \\
 \hline
 C4 & Legal code license & GPLv2 with mandatory citation clause \\
 \hline
@@ -261,9 +261,12 @@ PhysioFlow's main contribution is methodological, not just operational: its stat
 
 PhysioFlow has known limitations. It targets tabular exports and does not read proprietary binary formats, so vendor files must first be exported to CSV, TSV or XLSX. The physiology profile recognises a fixed 31-column reference schema; datasets outside it fall back to the generic profile, where domain presets and instrument-specific replicate handling are unavailable. The experimental-design module assumes balanced or nearly balanced layouts, and it reports, but does not automatically correct, violated assumptions; severely unbalanced or missing-cell designs still require a dedicated mixed-model package. Finally, the application is session-based and holds the working dataset in memory, which bounds the size of campaigns it can process interactively on a standard laptop.
 
-To date the platform has supported the analyses of the Goi\'as Verde initiative and the soil greenhouse-gas study presented at the 1st International Symposium on Climate and Agricultural Resilience~\cite{DaSilva2026Goias}; further studies on soybean and sugarcane photosynthetic performance in the Cerrado are in preparation, and this list will grow as ongoing campaigns are published.
-
 Planned developments include physiological range validation in the schema (\texttt{valid\_range} per column), integration of the instrument data dictionary as in-app tooltips, raising test coverage above 70\% across the \texttt{ml/}, \texttt{state} and \texttt{auth} modules, a quasi-constant-variable warning in the correlation panel, and a public Docker image for one-command deployment. On the analytical side, automatic fitting of physiological response curves (e.g.\ $A$/$C_i$ and light-response curves), automated report export, and predictive guard-rails that flag physiological-stress patterns to support decision-making are planned as future directions.
+
+%% ====================================================================
+\section{Publications enabled by the software}\label{sec:enabled}
+
+One scholarly contribution has so far been produced with \emph{PhysioFlow}: the study of greenhouse-gas fluxes in soil presented at the 1st International Symposium on Climate and Agricultural Resilience~\cite{DaSilva2026Goias}, whose processing and predictive-modelling steps were run on the platform. The software also underpins the ongoing analyses of the Goi\'as Verde initiative and the graduate work of the Postgraduate Programme in Agricultural Sciences at Instituto Federal Goiano, Campus Rio Verde; further studies on soybean and sugarcane photosynthetic performance in the Cerrado are in preparation, and this list will grow as those campaigns are published.
 
 %% ====================================================================
 \section*{CRediT authorship contribution statement}
