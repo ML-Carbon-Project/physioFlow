@@ -104,7 +104,18 @@ def coerce_date_series(series: pd.Series) -> pd.Series:
     """
     if pd.api.types.is_datetime64_any_dtype(series):
         return series
-    return pd.to_datetime(series, errors="coerce")
+    parsed = pd.to_datetime(series, errors="coerce")
+    # Numa coluna toda em texto o pandas infere um formato único a partir dos
+    # primeiros valores e reprova os demais — é o que acontece depois de um
+    # round-trip por CSV, quando datas gravadas em grafias diferentes
+    # ("2025-12-19" e "12/19/2025") convivem. A segunda passada reprocessa só
+    # as que sobraram, elemento a elemento.
+    pending = parsed.isna() & series.notna()
+    if pending.any():
+        parsed.loc[pending] = pd.to_datetime(
+            series[pending], errors="coerce", format="mixed"
+        )
+    return parsed
 
 
 TEXT_EXTENSIONS = (".csv", ".txt", ".tsv")
@@ -131,10 +142,14 @@ def load_uploaded_file(
         # O engine "python" so e necessario para o sniffer automatico (sep=None)
         # e para o separador por regex de espacos (\s+). Para delimitadores
         # literais usamos o engine C (padrao), bem mais rapido em arquivos grandes.
+        # utf-8-sig lê utf-8 normalmente e descarta o BOM quando existe. Sem
+        # isso a primeira coluna de um CSV com BOM vira "﻿ID" e deixa de
+        # casar com o schema — inclusive nas exportações do próprio app, que
+        # são gravadas em utf-8-sig.
         if sep is None or sep == r"\s+":
-            df = pd.read_csv(uploaded_file, sep=sep, engine="python")
+            df = pd.read_csv(uploaded_file, sep=sep, engine="python", encoding="utf-8-sig")
         else:
-            df = pd.read_csv(uploaded_file, sep=sep)
+            df = pd.read_csv(uploaded_file, sep=sep, encoding="utf-8-sig")
     elif name.endswith(".xlsx") or name.endswith(".xls"):
         if sheet_name:
             df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
@@ -143,8 +158,12 @@ def load_uploaded_file(
     else:
         raise ValueError("Formato não suportado. Envie CSV, TXT/TSV ou Excel.")
     
-    # Strip spaces from column names
-    df = df.rename(columns=lambda c: c.strip() if isinstance(c, str) else c)
+    # Strip spaces from column names. O BOM sobrevive a str.strip() (não é
+    # whitespace), então sai explicitamente — cobre também planilhas Excel
+    # gravadas a partir de um CSV com BOM.
+    df = df.rename(
+        columns=lambda c: c.lstrip("﻿").strip() if isinstance(c, str) else c
+    )
     return df
 
 

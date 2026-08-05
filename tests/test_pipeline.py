@@ -18,6 +18,7 @@ from src.pipeline import (
     count_repetitions,
     find_date_column,
     find_first_existing,
+    load_uploaded_file,
 )
 
 
@@ -215,6 +216,39 @@ class TestCoerceDateSeries:
         assert pd.api.types.is_datetime64_any_dtype(out)
         # Linha válida real → datetime; "garbage" e NaN → NaT
         assert out.notna().sum() == 2
+
+    def test_recovers_mixed_string_formats(self):
+        """Coluna toda em texto misturando grafias — o caso do round-trip por CSV.
+
+        O pandas infere um formato único a partir dos primeiros valores; sem a
+        segunda passada, as datas na outra grafia viravam NaT e sumiam do
+        filtro de intervalo sem aviso.
+        """
+        s = pd.Series(["2025-12-19 00:00:00"] * 3 + ["12/19/2025", "1/16/2026"])
+        out = coerce_date_series(s)
+        assert out.notna().all()
+        assert sorted(out.dt.strftime("%Y-%m-%d").unique()) == ["2025-12-19", "2026-01-16"]
+
+
+class TestLoadUploadedFileEncoding:
+    """CSV gravado com BOM: as próprias exportações do app usam utf-8-sig."""
+
+    def _upload(self, content: bytes, name: str = "dados.csv"):
+        import io
+
+        buf = io.BytesIO(content)
+        buf.name = name
+        return buf
+
+    def test_strips_bom_from_first_column(self):
+        csv = "ID,Ponto,A\nD-01,1,12.5\n".encode("utf-8-sig")
+        df = load_uploaded_file(self._upload(csv))
+        assert list(df.columns) == ["ID", "Ponto", "A"]
+
+    def test_plain_utf8_unaffected(self):
+        csv = "ID,Ponto,A\nD-01,1,12.5\n".encode("utf-8")
+        df = load_uploaded_file(self._upload(csv))
+        assert list(df.columns) == ["ID", "Ponto", "A"]
 
 
 class TestUtmProjection:

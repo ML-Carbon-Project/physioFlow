@@ -148,8 +148,28 @@ def render_page_filters(df: pd.DataFrame) -> pd.DataFrame:
                         )
                         if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
                             start_dt = pd.to_datetime(selected_dates[0])
-                            end_dt = pd.to_datetime(selected_dates[1])
-                            filtered_df = filtered_df[filtered_df[col_data].between(start_dt, end_dt)]
+                            # O dia final entra inteiro: com o limite em 00:00 as
+                            # medições que carregam hora ficavam de fora do próprio
+                            # último dia selecionado.
+                            end_dt = (
+                                pd.to_datetime(selected_dates[1])
+                                + pd.Timedelta(days=1)
+                                - pd.Timedelta(nanoseconds=1)
+                            )
+                            in_range = filtered_df[col_data].between(start_dt, end_dt)
+                            # Linhas sem data reconhecível não são comparáveis com o
+                            # intervalo; ficam, e o usuário é avisado. Descartá-las em
+                            # silêncio mudava o n de todas as análises sem nenhum sinal.
+                            undated = filtered_df[col_data].isna()
+                            if undated.any():
+                                st.caption(
+                                    ":warning: "
+                                    + t(
+                                        "filters.date_undated",
+                                        default="{n} registro(s) sem data reconhecível: mantidos, pois não são comparáveis com o intervalo.",
+                                    ).format(n=int(undated.sum()))
+                                )
+                            filtered_df = filtered_df[in_range | undated]
                 except Exception:
                     pass
 
