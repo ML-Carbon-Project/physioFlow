@@ -463,7 +463,7 @@ This is a **fundamental** section that prevents misleading conclusions in the re
 
 | Relationship | What it means | Example in the Rio Verde dataset |
 |---|---|---|
-| **Redundant (A ≡ B)** | The two columns are equivalent; one is just a relabelling of the other. **Cramér's V = 1.000 in both directions.** | `Fazenda ⟷ Cultura ⟷ Uso atual` — all partition the 81 rows into "Farm B / Soybean / Short Cycle" vs "Farm A / Sugarcane / Perennial". |
+| **Redundant (A ≡ B)** | The two columns are equivalent; one is just a relabelling of the other. **Cramér's V = 1.000 in both directions.** | `Fazenda ⟷ Cultura ⟷ Uso atual` — all partition the 81 rows into "Farm B / Soybean / Annual" vs "Farm A / Sugarcane / Perennial". |
 | **{A} determines {B}** | Each level of A belongs to a single level of B, but the converse is not true (B has more levels). | `Estágio` determines `Cultura` (each phenological stage occurs in only one crop). |
 | **High (partial) association** | Strong association, but neither direction is deterministic. | Rare in this dataset. |
 

@@ -431,7 +431,7 @@ Esta es una sección **fundamental** que evita conclusiones engañosas en el res
 
 | Relación | Qué significa | Ejemplo en el dataset Rio Verde |
 |---|---|---|
-| **Redundante (A ≡ B)** | Las dos columnas son equivalentes; una es solo un reetiquetado de la otra. **V de Cramér = 1,000 en ambos sentidos.** | `Fazenda ⟷ Cultura ⟷ Uso atual` — todas particionan las 81 filas en "Farm B / Soja / Ciclo Curto" vs "Farm A / Cana / Perene". |
+| **Redundante (A ≡ B)** | Las dos columnas son equivalentes; una es solo un reetiquetado de la otra. **V de Cramér = 1,000 en ambos sentidos.** | `Fazenda ⟷ Cultura ⟷ Uso atual` — todas particionan las 81 filas en "Farm B / Soja / Anual" vs "Farm A / Cana / Perene". |
 | **{A} determina {B}** | Cada nivel de A pertenece a un único nivel de B, pero lo inverso no es cierto (B tiene más niveles). | `Estágio` determina `Cultura` (cada estadio fenológico solo ocurre en un cultivo). |
 | **Asociación alta (parcial)** | Asociación fuerte, pero ninguna de las direcciones es determinística. | Raro en este dataset. |
 

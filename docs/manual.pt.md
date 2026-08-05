@@ -431,7 +431,7 @@ Esta é uma seção **fundamental** que evita conclusões enganosas no resto do 
 
 | Relação | O que significa | Exemplo no dataset Rio Verde |
 |---|---|---|
-| **Redundante (A ≡ B)** | As duas colunas são equivalentes; uma é só re-rotulação da outra. **Cramér's V = 1,000 nos dois sentidos.** | `Fazenda ⟷ Cultura ⟷ Uso atual` — todas particionam as 81 linhas em "Farm B / Soja / Ciclo Curto" vs "Farm A / Cana / Perene". |
+| **Redundante (A ≡ B)** | As duas colunas são equivalentes; uma é só re-rotulação da outra. **Cramér's V = 1,000 nos dois sentidos.** | `Fazenda ⟷ Cultura ⟷ Uso atual` — todas particionam as 81 linhas em "Farm B / Soja / Anual" vs "Farm A / Cana / Perene". |
 | **{A} determina {B}** | Cada nível de A pertence a um único nível de B, mas o inverso não é verdade (B tem mais níveis). | `Estágio` determina `Cultura` (cada estágio fenológico só ocorre em uma cultura). |
 | **Associação alta (parcial)** | Forte associação, mas nenhuma das direções é determinística. | Raro neste dataset. |
 
