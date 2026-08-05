@@ -107,6 +107,12 @@ PYTHONPATH=. .venv/bin/pytest tests/
 
 ---
 
+## 📄 Article
+
+The manuscript describing this software, submitted to *Software Impacts*, lives in its own repository: [ML-Carbon-Project/physioflow_Software_Impacts](https://github.com/ML-Carbon-Project/physioflow_Software_Impacts).
+
+---
+
 ## 👥 Support and Acknowledgments
 
 This project was developed with support and funding from CNPq, CAPES, FAPEG, the Federal Institute Goiano (IF Goiano – Campus Rio Verde), and the Center of Excellence in Exponential Agriculture (CEAGRE).
