@@ -138,11 +138,35 @@ def translate_step(step: str) -> str:
     return step
 
 
+# ---- Traducao em runtime dos rotulos do quadro de ANOVA ----
+# stats_utils.py e um modulo de calculo puro (sem streamlit) e mantem os termos
+# de erro dos delineamentos de erro composto em pt-BR: essa e a forma canonica,
+# usada pelos testes e pela exportacao CSV. Assim como em translate_step, a
+# traducao acontece so na hora de exibir o quadro.
+_ANOVA_SOURCE_KEYS: dict[str, str] = {
+    "Erro": "exp.anova.source.error",
+    "Erro(a)": "exp.anova.source.error_a",
+    "Erro(b)": "exp.anova.source.error_b",
+    "Erro(c)": "exp.anova.source.error_c",
+}
+
+
+def translate_anova_source(source: str) -> str:
+    """Traduz o rotulo de uma fonte de variacao para o idioma corrente.
+
+    So os termos de erro tem traducao; os demais rotulos vem dos nomes das
+    colunas do dataset (fatores, interacoes, blocos) e voltam sem alteracao.
+    """
+    key = _ANOVA_SOURCE_KEYS.get(source)
+    return t(key) if key else source
+
+
 __all__ = [
     "AVAILABLE_LANGUAGES",
     "DEFAULT_LANGUAGE",
     "get_language",
     "set_language",
     "t",
+    "translate_anova_source",
     "translate_step",
 ]

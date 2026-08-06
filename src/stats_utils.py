@@ -794,6 +794,11 @@ def compare_means(
 # blocos (RCBD), seguindo a montagem clássica de EMS. statsmodels fornece as
 # somas de quadrados (ortogonais no caso balanceado); os testes F com o
 # denominador correto são montados manualmente.
+#
+# Os rótulos "Erro(a)"/"Erro(b)"/"Erro(c)"/"Erro" no índice do quadro são a
+# forma canônica em pt-BR (este módulo é de cálculo puro, sem streamlit nem
+# i18n). Quem exibe traduz com src.i18n.translate_anova_source(); as chaves
+# vivem em exp.anova.source.* nas três locales.
 # ---------------------------------------------------------------------------
 
 
@@ -890,6 +895,7 @@ def fit_split_plot(
 
 # ---------------------------------------------------------------------------
 # Faixas (strip-plot) e hierárquico (nested) — delineamentos de erro composto.
+# Rótulos de erro em pt-BR canônico; traduzidos na exibição (ver acima).
 # ---------------------------------------------------------------------------
 
 

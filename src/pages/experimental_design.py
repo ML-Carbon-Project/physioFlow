@@ -20,7 +20,7 @@ from src.components.charts import show_fig
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import PRIMARY_COLOR
-from src.i18n import t
+from src.i18n import t, translate_anova_source
 from src.stats_utils import (
     clean_factor_levels,
     compare_means,
@@ -597,7 +597,7 @@ def _render_split_plot(df: pd.DataFrame, response: str, whole: str, sub: str, bl
 
     display = res.table.copy()
     display["p_value"] = display["p_value"].map(_format_p)
-    display = display.rename(columns={
+    display = display.rename(index=translate_anova_source, columns={
         "df": t("exp.anova.col.df"), "sum_sq": t("exp.anova.col.sq"),
         "mean_sq": t("exp.anova.col.ms"), "F": "F", "p_value": t("exp.anova.col.p"),
     })
@@ -622,7 +622,7 @@ def _render_composite_table(table: pd.DataFrame, file_stem: str) -> None:
     """Renderiza o quadro de ANOVA de um delineamento de erro composto."""
     display = table.copy()
     display["p_value"] = display["p_value"].map(_format_p)
-    display = display.rename(columns={
+    display = display.rename(index=translate_anova_source, columns={
         "df": t("exp.anova.col.df"), "sum_sq": t("exp.anova.col.sq"),
         "mean_sq": t("exp.anova.col.ms"), "F": "F", "p_value": t("exp.anova.col.p"),
     })
