@@ -73,6 +73,18 @@ fisiologia-streamlit/
 
 ## 🚀 How to Run Locally
 
+**Quickstart (copy-paste):**
+
+```bash
+git clone https://github.com/ML-Carbon-Project/physioFlow.git
+cd physioFlow
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
+pip install -U pip wheel && pip install -r requirements.txt
+python -m streamlit run app.py                       # opens http://localhost:8501
+```
+
+The step-by-step version follows.
+
 ### 1. Create and Activate Virtual Environment
 ```bash
 python -m venv .venv
@@ -104,6 +116,23 @@ The test suite validates data pipeline transformations and schema validation int
 ```bash
 PYTHONPATH=. .venv/bin/pytest tests/
 ```
+
+---
+
+## 🔁 Reproduce the paper's results
+
+The two public examples in the *Software Impacts* article (Section 3.2) regenerate from a clean checkout with a single headless command (no interface, no login):
+
+```bash
+python reproduce_examples.py
+```
+
+Straight from the same `src/` engine the app uses, it prints:
+
+- the **Yates oats split-plot ANOVA** (paper Table 2): variety *F* = 1.485, nitrogen *F* = 37.686, variety × nitrogen *F* = 0.303, matching `nlme::Oats` to the decimal;
+- the **Palmer penguins** flipper–body-mass Pearson *r* = 0.871 and species classification (Random Forest, SVM, k-NN at 1.00 holdout and 0.98–0.99 cross-validated accuracy).
+
+The experimental-design engine is additionally cross-validated number-by-number against R (`aov`, `car::Anova` type II, `emmeans`, `ScottKnott`); see [`docs/validacao_externa.md`](./docs/validacao_externa.md).
 
 ---
 

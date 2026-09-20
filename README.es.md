@@ -73,6 +73,18 @@ fisiologia-streamlit/
 
 ## 🚀 Cómo Ejecutar Localmente
 
+**Inicio rápido (copiar y pegar):**
+
+```bash
+git clone https://github.com/ML-Carbon-Project/physioFlow.git
+cd physioFlow
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
+pip install -U pip wheel && pip install -r requirements.txt
+python -m streamlit run app.py                       # abre en http://localhost:8501
+```
+
+La versión paso a paso está a continuación.
+
 ### 1. Crear y Activar Ambiente Virtual
 ```bash
 python -m venv .venv
@@ -104,6 +116,23 @@ La suite de pruebas valida la integridad del pipeline de datos y las reglas de v
 ```bash
 PYTHONPATH=. .venv/bin/pytest tests/
 ```
+
+---
+
+## 🔁 Reproducir los resultados del artículo
+
+Los dos ejemplos públicos del artículo en *Software Impacts* (Sección 3.2) pueden regenerarse desde un checkout limpio con un único comando *headless* (sin interfaz, sin inicio de sesión):
+
+```bash
+python reproduce_examples.py
+```
+
+Directamente desde el mismo motor `src/` que usa la app, imprime:
+
+- el **ANOVA de parcelas subdivididas de la avena de Yates** (Tabla 2 del artículo): variedad *F* = 1.485, nitrógeno *F* = 37.686, variedad × nitrógeno *F* = 0.303, coincidiendo con `nlme::Oats` hasta el decimal;
+- la correlación de Pearson longitud-de-aleta × masa de los **pingüinos de Palmer** *r* = 0.871 y la clasificación de especies (Random Forest, SVM, k-NN con 1.00 de exactitud en holdout y 0.98–0.99 en validación cruzada).
+
+El motor de estadística experimental está además validado número a número contra R (`aov`, `car::Anova` tipo II, `emmeans`, `ScottKnott`); ver [`docs/validacao_externa.md`](./docs/validacao_externa.md).
 
 ---
 
