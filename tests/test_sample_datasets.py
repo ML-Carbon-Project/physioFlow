@@ -15,6 +15,7 @@ Cada teste é pulado (``skip``) se o arquivo não estiver presente.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -40,6 +41,8 @@ _SEP = {
     "sk_crd1.csv": ",",
     "sk_rcbd.csv": ",",
     "sk_sorghum.csv": ",",
+    "sweetpotato.csv": ",",
+    "plantgrowth.csv": ",",
 }
 
 
@@ -216,3 +219,68 @@ class TestScottKnottVsR:
             frozenset({"6", "10", "11", "12", "13", "15", "16"}),
         })
         assert self._our_partition(df, "x", "r") == expected
+
+
+class TestPostHocVsR:
+    """Tukey, LSD, Duncan, Scheffé e Dunnett contra referências do R.
+
+    As referências vêm de ``TukeyHSD`` (R base), ``agricolae`` (LSD, Duncan,
+    Scheffé) e ``multcomp::glht`` (Dunnett), congeladas em
+    ``data/sample/test/posthoc_reference_R.json`` por
+    ``scripts/gerar_referencia_posthoc_R.R`` — a suíte não precisa do R.
+
+    Comparamos a **decisão por par** (difere / não difere a 5 %), que é o que o
+    usuário lê nas letras. Datasets: sweetpotato (agricolae), PlantGrowth (R
+    base), penguins (n desigual) e sorgo em DBC com 16 tratamentos.
+    """
+
+    # dataset -> (arquivo, resposta, tratamento, bloco)
+    SETS = {
+        "sweetpotato": ("sweetpotato.csv", "yield", "virus", None),
+        "plantgrowth": ("plantgrowth.csv", "weight", "group", None),
+        "penguins": ("penguins.csv", "body_mass_g", "species", None),
+        "sorghum": ("sk_sorghum.csv", "y", "x", "r"),
+    }
+
+    @pytest.fixture(scope="class")
+    def ref(self):
+        path = SAMPLE_DIR / "posthoc_reference_R.json"
+        if not path.exists():
+            pytest.skip(f"referência ausente: {path}")
+        return json.loads(path.read_text())
+
+    def _frame(self, name):
+        fname, resp, trt, blk = self.SETS[name]
+        df = _load(fname)
+        if name == "penguins":
+            df = df[df["body_mass_g"].notna() & (df["species"] != "")]
+        if name == "sorghum":
+            df = df.astype({"x": str, "r": str})
+        return df, resp, trt, blk
+
+    @pytest.mark.parametrize("dataset", sorted(SETS))
+    @pytest.mark.parametrize("method", ["tukey", "lsd", "duncan", "scheffe"])
+    def test_pairwise_decisions_match_r(self, ref, dataset, method):
+        df, resp, trt, blk = self._frame(dataset)
+        res = fit_experimental_anova(df, resp, trt, block=blk)
+        table = compare_means(df, resp, trt, res.ms_error, res.df_error, method=method)
+        letters = dict(zip(table["group"].astype(str), table["group_letter"]))
+        for g1, g2, differs_in_r in ref[dataset][method]:
+            differs_here = not (set(letters[g1]) & set(letters[g2]))
+            assert differs_here == differs_in_r, (
+                f"{dataset}/{method}: par ({g1}, {g2}) difere={differs_here}, R={differs_in_r}"
+            )
+
+    @pytest.mark.parametrize("dataset,control", [
+        ("plantgrowth", "ctrl"), ("sweetpotato", "cc"), ("penguins", "Adelie"),
+    ])
+    def test_dunnett_pvalues_match_multcomp(self, ref, dataset, control):
+        from src.stats_utils import dunnett_test
+
+        df, resp, trt, _ = self._frame(dataset)
+        out = dunnett_test(df, resp, trt, control=control)
+        got = dict(zip(out["group"].astype(str), out["p_value"]))
+        for group, p_r in ref["_dunnett"][dataset].items():
+            # scipy usa integração numérica da t multivariada; 1e-3 cobre a
+            # diferença de algoritmo sem mascarar erro de especificação.
+            assert got[group] == pytest.approx(p_r, abs=1e-3)

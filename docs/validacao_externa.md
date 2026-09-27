@@ -93,6 +93,56 @@ O `sk_sorghum` é o exemplo de rendimento de sorgo do artigo de Jelihovschi,
 Faria & Allaman (2014) — a mesma referência cuja formulação (σ²₀, λ, ν₀=k/(π−2))
 o motor implementa. Reprodução em `tests/test_sample_datasets.py::TestScottKnottVsR`.
 
+## 3c. Tukey, LSD, Duncan, Scheffé e Dunnett vs. R (2026-09-27)
+
+Antes desta rodada, apenas o Scott-Knott (§3b) e os delineamentos (§0) tinham
+referência externa; LSD, Duncan, Scheffé e Dunnett eram cobertos só por testes
+de comportamento (ex.: "Scheffé é mais conservador que LSD"). Esta seção fecha
+essa lacuna.
+
+**Referências:** `TukeyHSD` (R base), `agricolae` 1.3.7 (`LSD.test`,
+`duncan.test`, `scheffe.test`) e `multcomp` 1.4.32 (`glht`, Dunnett
+*single-step*), em R 4.6.0. O critério comparado é a **decisão por par**
+(difere / não difere a 5 %) — que é o que o usuário lê nas letras.
+
+| Dataset | Delineamento | k | Pares | Tukey | LSD | Duncan | Scheffé |
+|---|---|---|---|---|---|---|---|
+| `sweetpotato` (agricolae) | DIC | 4 | 6 | ✅ | ✅ | ✅ | ✅ |
+| `plantgrowth` (R base) | DIC | 3 | 3 | ✅ | ✅ | ✅ | ✅ |
+| `penguins` (n desigual) | DIC | 3 | 3 | ✅ | ✅ | ✅ | ✅ |
+| `sk_sorghum` | DBC | 16 | 120 | ✅ | ✅ | ✅ | ✅ |
+
+**528 decisões pareadas conferidas, 100 % de concordância.** Os valores
+críticos também batem: LSD, diferença crítica de Scheffé e as amplitudes de
+Duncan (`Rp`, p = 2…k) — 26 valores, diferença relativa máxima **4,7×10⁻⁸**.
+
+**Dunnett** (cada tratamento vs. controle), contra `multcomp::glht`:
+
+| Dataset | Controle | Maior \|Δp\| | Decisões |
+|---|---|---|---|
+| `plantgrowth` | `ctrl` | 4,2×10⁻⁵ | iguais |
+| `sweetpotato` | `cc` | 3,3×10⁻⁴ | iguais |
+| `penguins` | `Adelie` | 2,7×10⁻⁶ | iguais |
+
+A diferença vem da integração numérica da t multivariada (`scipy.stats.dunnett`
+vs. `mvtnorm` do `multcomp`), não de especificação.
+
+> **Limite conhecido:** `dunnett_test` é *one-way* — a página de delineamentos
+> o chama sem bloco, então em DBC/fatorial/parcelas subdivididas ele não usa o
+> QMR do delineamento. Os demais métodos recebem `ms_error`/`df_error` do
+> modelo ajustado e não têm essa limitação.
+
+**Reprodução.** As referências estão congeladas em
+`data/sample/test/posthoc_reference_R.json` (a suíte **não** precisa do R):
+
+```bash
+pytest tests/test_sample_datasets.py::TestPostHocVsR -v   # usa o JSON
+Rscript scripts/gerar_referencia_posthoc_R.R              # regenera o JSON
+```
+
+Fora de escopo (sem referência externa): **quadrado latino** e
+**regressão de doses**, cobertos apenas por testes internos.
+
 ## 4. Soja multiambiente (`australia.soybean.txt`)
 
 Ensaio com 8 ambientes, 58 genótipos e 6 variáveis. Usado para a validação de

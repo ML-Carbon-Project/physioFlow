@@ -101,7 +101,7 @@ def penguins() -> None:
             X, y, cv=skf, scoring="accuracy",
         ).mean()
         print(f"{key:<20}{hold:>13.3f}{cv:>18.3f}")
-    print("Paper: RF, SVM and k-NN at 1.00 holdout accuracy and 0.99 stratified CV.")
+    print("Paper: RF, SVM and k-NN at 1.00 holdout accuracy and 0.98-0.99 stratified CV.")
 
 
 if __name__ == "__main__":

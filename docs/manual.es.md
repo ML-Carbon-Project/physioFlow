@@ -57,7 +57,7 @@ En una frase: **valida, limpia, explora y modela** planillas de campo de fisiolo
 | Ítem | Mínimo | Recomendado |
 |---|---|---|
 | Sistema operativo | Linux, macOS o Windows 10+ | macOS / Linux |
-| Python | 3.12 | 3.12 o 3.14 |
+| Python | 3.10 | 3.12 |
 | Memoria RAM | 4 GB | 8 GB |
 | Espacio en disco | 1 GB libre | 2 GB libre |
 | Navegador | Chrome o Firefox reciente | cualquiera basado en Chromium |
