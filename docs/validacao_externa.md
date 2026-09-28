@@ -124,13 +124,34 @@ Duncan (`Rp`, p = 2…k) — 26 valores, diferença relativa máxima **4,7×10�
 | `sweetpotato` | `cc` | 3,3×10⁻⁴ | iguais |
 | `penguins` | `Adelie` | 2,7×10⁻⁶ | iguais |
 
-A diferença vem da integração numérica da t multivariada (`scipy.stats.dunnett`
-vs. `mvtnorm` do `multcomp`), não de especificação.
+A diferença vem da integração numérica da t multivariada, não de
+especificação.
 
-> **Limite conhecido:** `dunnett_test` é *one-way* — a página de delineamentos
-> o chama sem bloco, então em DBC/fatorial/parcelas subdivididas ele não usa o
-> QMR do delineamento. Os demais métodos recebem `ms_error`/`df_error` do
-> modelo ajustado e não têm essa limitação.
+### 3d. Dunnett com bloco (`sk_rcbd`) — correção de 2026-09-27
+
+O limite anterior está **corrigido**. Até a v1.0 (commit `bc69e10`, o citado no
+artigo) `dunnett_test` era *one-way*: estimava a variância só entre as
+repetições do tratamento, então num DBC a variação de bloco entrava no erro e
+inflava o valor-p. Os demais métodos sempre receberam `ms_error`/`df_error` do
+modelo ajustado; só o Dunnett ficou de fora.
+
+Agora a função aceita `ms_error`/`df_error` e a página passa os do modelo. A
+referência é `aov(y ~ tra + blk)` + `multcomp::glht(..., "Dunnett")` sobre o
+`sk_rcbd` (5 tratamentos × 4 blocos), congelada em `_dunnett_rcbd`:
+
+| Tratamento | p (R, com bloco) | p (corrigido) | p (comportamento antigo) |
+|---|---|---|---|
+| B | 0,7376 | 0,7376 | 0,7142 |
+| C | 0,7361 | 0,7361 | 0,7127 |
+| D | 0,9433 | 0,9433 | 0,9372 |
+| E | **0,0539** | **0,0539** | **0,0385** |
+
+O QMR bate com o do R (40,4811; 12 gl). O tratamento E mostra por que importa:
+o comportamento antigo o declarava diferente do controle a 5 %, o correto não.
+
+Sem `ms_error`/`df_error` a função continua caindo no erro *one-way*, que é o
+certo no DIC — e há teste conferindo que esse caminho reproduz o
+`scipy.stats.dunnett`.
 
 **Reprodução.** As referências estão congeladas em
 `data/sample/test/posthoc_reference_R.json` (a suíte **não** precisa do R):

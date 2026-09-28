@@ -281,6 +281,51 @@ class TestPostHocVsR:
         out = dunnett_test(df, resp, trt, control=control)
         got = dict(zip(out["group"].astype(str), out["p_value"]))
         for group, p_r in ref["_dunnett"][dataset].items():
-            # scipy usa integração numérica da t multivariada; 1e-3 cobre a
+            # a cdf da t multivariada é estimada numericamente; 1e-3 cobre a
             # diferença de algoritmo sem mascarar erro de especificação.
             assert got[group] == pytest.approx(p_r, abs=1e-3)
+
+    def test_dunnett_with_block_matches_multcomp(self, ref):
+        """Dunnett num DBC precisa do QMR do delineamento, não do erro one-way.
+
+        Regressão do defeito corrigido em 27/09/2026: ``dunnett_test`` estimava
+        a variância só entre as repetições do tratamento, jogando a variação de
+        bloco para dentro do erro. No ``sk_rcbd`` isso muda a decisão do
+        tratamento E a 5 % (p = 0,038 em vez de 0,054).
+        """
+        from src.stats_utils import dunnett_test
+
+        spec = ref["_dunnett_rcbd"]
+        df = pd.read_csv(SAMPLE_DIR / spec["dataset"])
+        df[spec["block"]] = df[spec["block"]].astype(str)
+        res = fit_experimental_anova(df, spec["response"], spec["factor"], block=spec["block"])
+
+        assert res.ms_error == pytest.approx(spec["ms_error"], rel=1e-6)
+        assert int(res.df_error) == spec["df_error"]
+
+        out = dunnett_test(
+            df, spec["response"], spec["factor"], control=spec["control"],
+            ms_error=res.ms_error, df_error=res.df_error,
+        )
+        got = dict(zip(out["group"].astype(str), out["p_value"]))
+        for group, p_r in spec["p"].items():
+            assert got[group] == pytest.approx(p_r, abs=1e-3)
+
+    def test_dunnett_without_error_terms_falls_back_to_one_way(self):
+        """Sem ms_error/df_error, reproduz o ``scipy.stats.dunnett`` (caso DIC)."""
+        from scipy.stats import dunnett as scipy_dunnett
+
+        from src.stats_utils import dunnett_test
+
+        df = pd.read_csv(SAMPLE_DIR / "plantgrowth.csv")
+        levels = sorted(df["group"].astype(str).unique())
+        others = [lv for lv in levels if lv != "ctrl"]
+        samples = [df.loc[df["group"].astype(str) == lv, "weight"].to_numpy() for lv in others]
+        control = df.loc[df["group"].astype(str) == "ctrl", "weight"].to_numpy()
+        expected = scipy_dunnett(*samples, control=control,
+                                 alternative="two-sided", random_state=0)
+
+        got = dict(zip(*(lambda o: (o["group"].astype(str), o["p_value"]))(
+            dunnett_test(df, "weight", "group", control="ctrl"))))
+        for lv, p_scipy in zip(others, expected.pvalue, strict=True):
+            assert got[lv] == pytest.approx(p_scipy, abs=1e-3)

@@ -704,42 +704,109 @@ def duncan_groups(
     return _compact_letter_display(means, not_different)
 
 
-def dunnett_test(
-    df: pd.DataFrame, response: str, factor: str, control: str, alpha: float = 0.05
-) -> pd.DataFrame:
-    """Teste de Dunnett: cada tratamento vs um controle (não usa letras).
+# Semente fixa do integrador quase-Monte Carlo da t multivariada: a cdf é
+# estimada numericamente, e sem semente os mesmos dados dariam valores-p
+# ligeiramente diferentes a cada execução.
+_DUNNETT_SEED = 20260927
 
-    Devolve uma tabela com média, diferença para o controle, valor-p (bicaudal)
-    e se difere do controle. Usa ``scipy.stats.dunnett`` (distribuição t
-    multivariada — o ajuste correto para comparações com um controle).
+
+def dunnett_test(
+    df: pd.DataFrame,
+    response: str,
+    factor: str,
+    control: str,
+    alpha: float = 0.05,
+    *,
+    ms_error: float | None = None,
+    df_error: float | None = None,
+    means_override: dict[str, float] | None = None,
+) -> pd.DataFrame:
+    """Teste de Dunnett: cada tratamento contra um controle (não usa letras).
+
+    Args:
+        ms_error, df_error: quadrado médio do resíduo e seus graus de liberdade,
+            vindos do modelo ajustado ao delineamento. **Passe-os sempre que a
+            análise tiver blocos ou outros fatores**: sem eles a variância é
+            estimada só entre as repetições do fator, jogando a variação de
+            bloco/fator para dentro do erro e inflando o valor-p. Quando ambos
+            são omitidos, cai no erro one-way — que é o correto apenas no DIC.
+        means_override: médias ajustadas (ANCOVA) no lugar das médias marginais.
+
+    A estatística e o ajuste de multiplicidade seguem Dunnett (1955): com
+    :math:`s^2` o quadrado médio do resíduo e :math:`\\nu` seus graus de
+    liberdade,
+
+    .. math:: t_i = (\\bar{y}_i - \\bar{y}_c) / (s\\sqrt{1/n_i + 1/n_c}),
+
+    e o valor-p de cada contraste sai da t multivariada com :math:`\\nu` graus
+    de liberdade e correlação :math:`\\rho_{ij} = [(n_c/n_i + 1)(n_c/n_j + 1)]^{-1/2}`,
+    que é o ajuste exato para comparações contra um controle comum.
+
+    Devolve média, diferença para o controle, valor-p bicaudal e se difere.
     """
-    from scipy.stats import dunnett
+    from scipy import stats as sps
 
     groups = group_means(df, response, factor)
+    if groups.empty:
+        return pd.DataFrame()
     levels = groups["group"].tolist()
     if control not in levels or len(levels) < 2:
         return pd.DataFrame()
 
-    control_vals = df.loc[df[factor].astype(str) == control, response].dropna().to_numpy()
-    others = [lvl for lvl in levels if lvl != control]
-    samples = [df.loc[df[factor].astype(str) == lvl, response].dropna().to_numpy() for lvl in others]
-
-    res = dunnett(*samples, control=control_vals, alternative="two-sided")
     mean_map = dict(zip(groups["group"], groups["mean"], strict=True))
     n_map = dict(zip(groups["group"], groups["n"], strict=True))
-    ctrl_mean = mean_map[control]
+    if means_override is not None:
+        mean_map = {g: float(means_override.get(g, mean_map[g])) for g in levels}
+
+    others = [lvl for lvl in levels if lvl != control]
+    n_control = float(n_map[control])
+    n_others = np.array([float(n_map[lvl]) for lvl in others])
+
+    if ms_error is None or df_error is None:
+        # Sem modelo: variância agrupada entre os níveis do próprio fator, com
+        # gl = N - k - 1. É o que o scipy.stats.dunnett faz internamente.
+        ms_error, df_error = _one_way_pooled_error(df, response, factor, levels)
+    ms_error, df_error = float(ms_error), float(df_error)
+    if not np.isfinite(ms_error) or ms_error <= 0 or df_error < 1:
+        return pd.DataFrame()
+
+    std = np.sqrt(ms_error)
+    diffs = np.array([mean_map[lvl] - mean_map[control] for lvl in others])
+    statistic = diffs / (std * np.sqrt(1.0 / n_others + 1.0 / n_control))
+
+    ratio = n_control / n_others + 1.0
+    rho = 1.0 / np.sqrt(ratio[:, None] * ratio[None, :])
+    np.fill_diagonal(rho, 1.0)
+
+    abs_stat = np.abs(statistic).reshape(-1, 1)
+    mvt = sps.multivariate_t(shape=rho, df=df_error, seed=_DUNNETT_SEED)
+    pvalues = np.atleast_1d(1.0 - mvt.cdf(abs_stat, lower_limit=-abs_stat))
+
     rows = [{
-        "group": control, "n": n_map[control], "mean": ctrl_mean,
+        "group": control, "n": n_map[control], "mean": mean_map[control],
         "diff_vs_control": 0.0, "p_value": float("nan"), "is_control": True,
         "differs": False,
     }]
-    for lvl, _stat, p in zip(others, res.statistic, res.pvalue, strict=True):
+    for lvl, diff, p in zip(others, diffs, pvalues, strict=True):
         rows.append({
             "group": lvl, "n": n_map[lvl], "mean": mean_map[lvl],
-            "diff_vs_control": float(mean_map[lvl] - ctrl_mean),
+            "diff_vs_control": float(diff),
             "p_value": float(p), "is_control": False, "differs": bool(p < alpha),
         })
     return pd.DataFrame(rows).sort_values("mean", ascending=False).reset_index(drop=True)
+
+
+def _one_way_pooled_error(
+    df: pd.DataFrame, response: str, factor: str, levels: list[str]
+) -> tuple[float, float]:
+    """Quadrado médio do resíduo de uma ANOVA de um fator e seus gl."""
+    ss, n_total = 0.0, 0
+    for lvl in levels:
+        x = df.loc[df[factor].astype(str) == lvl, response].dropna().to_numpy()
+        ss += float(np.sum((x - x.mean()) ** 2))
+        n_total += len(x)
+    df_error = float(n_total - len(levels))
+    return (ss / df_error if df_error > 0 else float("nan")), df_error
 
 
 # Despachante de métodos de comparação de médias.

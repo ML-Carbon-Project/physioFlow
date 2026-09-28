@@ -96,6 +96,7 @@ _METHOD_FUNCS = {
     "duncan": "duncan_groups",
     "lsd": "lsd_groups",
     "scheffe": "scheffe_groups",
+    "dunnett": "dunnett_test",
 }
 
 
@@ -125,7 +126,22 @@ def _build_script(
     cat_internal = [v for k, v in rename.items() if v != "y"]
     factor_internal = rename[factor]
 
-    if method == "tukey":
+    if method == "dunnett":
+        # Dunnett tem assinatura própria (contra um controle, sem letras) e
+        # precisa do QMR do modelo — por isso não cabe no molde dos demais.
+        compare = (
+            "# --- Dunnett (cada tratamento vs o controle) -------------------------------\n"
+            "# Implementação em src/stats_utils.py. O ms_error/df_error vêm do modelo\n"
+            "# acima: num delineamento com bloco ou 2º fator, estimar o erro só entre\n"
+            "# as repetições do tratamento infla o valor-p.\n"
+            "from src.stats_utils import dunnett_test\n\n"
+            "ms_error = anova.loc[\"Residual\", \"mean_sq\"]\n"
+            "df_error = anova.loc[\"Residual\", \"df\"]\n"
+            f'controle = data["{factor_internal}"].astype(str).min()  # ajuste para o seu controle\n'
+            f'print(dunnett_test(data, "y", "{factor_internal}", controle,\n'
+            f"                   alpha={alpha}, ms_error=ms_error, df_error=df_error))\n"
+        )
+    elif method == "tukey":
         compare = (
             "# --- Tukey HSD ------------------------------------------------------------\n"
             "from statsmodels.stats.multicomp import pairwise_tukeyhsd\n\n"
@@ -299,15 +315,26 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
         key="exp_compare_method",
     )
 
+    # ANCOVA: compara médias AJUSTADAS pela covariável (só no fator tratamento).
+    use_adjusted = bool(result.adjusted_means) and factor == result.factor_terms[0]
+    override = result.adjusted_means if use_adjusted else None
+
     # Dunnett: cada tratamento vs um controle — fluxo próprio (sem letras).
     if method_label == "dunnett":
         levels = sorted(df_clean[factor].dropna().astype(str).unique().tolist())
         control = st.selectbox(t("exp.compare.control"), options=levels, key="exp_dunnett_control")
-        dtable = dunnett_test(df_clean, response, factor, control)
+        # ms_error/df_error vêm do modelo ajustado, como nos demais métodos: sem
+        # eles a variação de bloco/2º fator entraria no erro e inflaria o valor-p.
+        dtable = dunnett_test(
+            df_clean, response, factor, control,
+            ms_error=result.ms_error, df_error=result.df_error, means_override=override,
+        )
         if dtable.empty:
             st.info(t("exp.compare.no_data"))
             return method_label
-        st.caption(t("exp.compare.dunnett_note", control=control))
+        st.caption(t("exp.compare.dunnett_note", control=control, df=int(result.df_error)))
+        if use_adjusted:
+            st.caption(t("exp.compare.adjusted_note", cov=result.covariate))
         show = dtable.assign(
             differs=dtable["differs"].map(lambda v: "✅" if v else "—"),
             p_value=dtable["p_value"].map(_format_p),
@@ -322,9 +349,6 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
         }), use_container_width=True, hide_index=True)
         return method_label
 
-    # ANCOVA: compara médias AJUSTADAS pela covariável (só no fator tratamento).
-    use_adjusted = bool(result.adjusted_means) and factor == result.factor_terms[0]
-    override = result.adjusted_means if use_adjusted else None
     n_levels = df_clean[factor].nunique()
     if n_levels > _MAX_COMPARISON_LEVELS:
         st.warning(t("exp.compare.too_many_levels", n=n_levels, max=_MAX_COMPARISON_LEVELS))

@@ -82,6 +82,23 @@ for (nm in names(dsets)) {
   dn[[nm]] <- setNames(as.list(round(as.numeric(sm$test$pvalues), 6)), nms)
 }
 ref[["_dunnett"]] <- dn
+
+# --- Dunnett COM BLOCO (DBC): o contraste tem de usar o QMR do delineamento --
+# Referencia para o caso que motivou a correcao: com bloco no modelo, o erro
+# deixa de ser o de um fator so. sk_rcbd: 5 tratamentos x 4 blocos.
+rcbd <- read.csv(file.path(T, "sk_rcbd.csv"), stringsAsFactors = FALSE)
+rcbd$tra <- relevel(factor(rcbd$tra), ref = "A")
+rcbd$blk <- factor(rcbd$blk)
+fit_b <- aov(y ~ tra + blk, rcbd)
+sm_b <- summary(glht(fit_b, linfct = mcp(tra = "Dunnett")))
+nms_b <- sub(" - .*", "", names(sm_b$test$coefficients))
+ref[["_dunnett_rcbd"]] <- list(
+  dataset = "sk_rcbd.csv", response = "y", factor = "tra",
+  block = "blk", control = "A",
+  ms_error = round(summary(fit_b)[[1]]["Residuals", "Mean Sq"], 10),
+  df_error = summary(fit_b)[[1]]["Residuals", "Df"],
+  p = setNames(as.list(round(as.numeric(sm_b$test$pvalues), 6)), nms_b)
+)
 ref[["_meta"]] <- list(
   R = as.character(getRversion()),
   agricolae = as.character(packageVersion("agricolae")),

@@ -771,7 +771,7 @@
   "exp.strip.legend": "El Error(a) prueba {a}; el Error(b) prueba {b}; el Error(c) prueba la interacción {a}×{b}.",
   "exp.nested.legend": "{a} se prueba contra {b}({a}); {b}({a}) se prueba contra el residuo.",
   "exp.compare.control": "Control (Dunnett)",
-  "exp.compare.dunnett_note": "Cada tratamiento comparado con el control '{control}' (Dunnett, bilateral, 5%).",
+  "exp.compare.dunnett_note": "Cada tratamiento comparado con el control '{control}' (Dunnett, bilateral, 5%), usando el cuadrado medio del residuo del diseño ({df} gl).",
   "exp.compare.col.diff": "Dif. vs control",
   "exp.compare.col.differs": "¿Difiere?"
 }

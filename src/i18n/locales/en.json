@@ -771,7 +771,7 @@
   "exp.strip.legend": "Error(a) tests {a}; Error(b) tests {b}; Error(c) tests the {a}×{b} interaction.",
   "exp.nested.legend": "{a} is tested against {b}({a}); {b}({a}) is tested against the residual.",
   "exp.compare.control": "Control (Dunnett)",
-  "exp.compare.dunnett_note": "Each treatment compared to control '{control}' (Dunnett, two-sided, 5%).",
+  "exp.compare.dunnett_note": "Each treatment compared to control '{control}' (Dunnett, two-sided, 5%), using the residual mean square of the design ({df} df).",
   "exp.compare.col.diff": "Diff. vs control",
   "exp.compare.col.differs": "Differs?"
 }
