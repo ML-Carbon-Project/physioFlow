@@ -49,6 +49,10 @@ classifiers = [
 [tool.pytest.ini_options]
 addopts = "-q --cov=src --cov-report=term-missing --cov-report=xml"
 testpaths = ["tests"]
+# Os testes importam `src.*` e o projeto não é instalado como pacote. Sem isto,
+# só `python -m pytest` funciona (ele acrescenta o diretório atual ao sys.path);
+# o `pytest` puro, como o CI chama, não encontraria o módulo.
+pythonpath = ["."]
 
 [tool.coverage.run]
 branch = true
