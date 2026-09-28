@@ -1139,7 +1139,7 @@ Four result tabs:
 
 1. **ANOVA** — full table (df, SS, MS, F, p-value), experimental **CV%** and automatic interpretation of the terms.
 2. **Assumptions** — Shapiro-Wilk (residual normality) and Levene (homoscedasticity), with Q–Q plot and residuals × fitted chart.
-3. **Mean comparison** — choice of method: **Tukey, Scott-Knott, Duncan, Scheffé, LSD/DMS** (with significance letters and bar chart), or **Dunnett** (each treatment vs. a control). In ANCOVA, means are adjusted by the covariate.
+3. **Mean comparison** — choice of method: **Tukey, Scott-Knott, Duncan, Scheffé, LSD/DMS** (with significance letters and bar chart), or **Dunnett** (each treatment vs. a control). Every method uses the residual mean square of the fitted design, so in an RCBD or a factorial the block and the second factor stay out of the error term. The caption below the table states how many degrees of freedom were used. In ANCOVA, means are adjusted by the covariate.
 4. **Reproducibility** — code snippet + button to **download the full Python script** that reproduces the analysis, plus the data CSV.
 
 ![ANOVA table of a split-plot design (Yates oats data): the whole-plot factor (`gen`) is tested against Error(a) and the subplot factor (`nitro`) against Error(b), with separate CV(a) and CV(b). The F values reproduce R exactly.](img/manual/27_experimental_anova.png)

@@ -1107,7 +1107,7 @@ Cuatro pestañas de resultado:
 
 1. **ANOVA** — cuadro completo (gl, SC, CM, F, valor-p), **CV% experimental** e interpretación automática de los términos.
 2. **Supuestos** — Shapiro-Wilk (normalidad de los residuos) y Levene (homocedasticidad), con QQ-plot y gráfico de residuos × ajustados.
-3. **Comparación de medias** — elección del método: **Tukey, Scott-Knott, Duncan, Scheffé, LSD/DMS** (con letras de significancia y gráfico de barras), o **Dunnett** (cada tratamiento vs. un control). En ANCOVA, las medias se ajustan por la covariable.
+3. **Comparación de medias** — elección del método: **Tukey, Scott-Knott, Duncan, Scheffé, LSD/DMS** (con letras de significancia y gráfico de barras), o **Dunnett** (cada tratamiento vs. un control). Todos los métodos usan el cuadrado medio del residuo del diseño ajustado, así que en un DBCA o un factorial la variación del bloque y del 2º factor queda fuera del error. La leyenda bajo la tabla indica cuántos grados de libertad se usaron. En ANCOVA, las medias se ajustan por la covariable.
 4. **Reproducibilidad** — fragmento del código + botón para **descargar el script Python** completo que reproduce el análisis, además del CSV de los datos.
 
 ![Cuadro de ANOVA de un diseño en parcelas subdivididas (datos oats de Yates): el factor de parcela (`gen`) se prueba contra el Error(a) y la subparcela (`nitro`) contra el Error(b); CV(a) y CV(b) separados. Los valores de F reproducen exactamente los de R.](img/manual/27_experimental_anova.png)
