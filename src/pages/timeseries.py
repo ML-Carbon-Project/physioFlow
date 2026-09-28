@@ -1,21 +1,19 @@
 """Página de Série Temporal: agregação por data e decomposição STL."""
 from __future__ import annotations
 
-from typing import Optional
-
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from src.components.charts import show_fig
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
 from src.pipeline import coerce_date_series, find_date_column
 
 
-def _find_date_column(df: pd.DataFrame) -> Optional[str]:
+def _find_date_column(df: pd.DataFrame) -> str | None:
     return find_date_column(df)
 
 

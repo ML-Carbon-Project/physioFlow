@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import io
+
 import pandas as pd
 import streamlit as st
 
 from src.components.dataset_controls import ensure_raw_dataframe
-from src.pipeline import aggregate_by_group, clean_fisiologia_data, build_step_report, count_repetitions
+from src.i18n import t, translate_step
+from src.pipeline import (
+    aggregate_by_group,
+    build_step_report,
+    clean_fisiologia_data,
+    count_repetitions,
+)
 from src.profile import is_physiology
 from src.state import get_processed_dataframe, get_report_dataframe, set_processed_dataset
-from src.i18n import t, translate_step
 
 
 def _render_generic_pipeline(df_raw: pd.DataFrame) -> None:
@@ -79,7 +85,7 @@ def render():
 
     # Recupera o método de réplica atual do sidebar/estado
     rep_method = st.session_state.get("rep_method", "media")
-    
+
     # Exibe informações sobre as etapas automatizadas de Fisiologia
     st.markdown(f"### {t('pipeline.section_info')}")
     st.info(

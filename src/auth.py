@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -23,8 +23,8 @@ _TOKEN_REFRESH_MARGIN_SECONDS = 120
 @dataclass(frozen=True)
 class SupabaseAuthConfig:
     enabled: bool
-    url: Optional[str]
-    client_key: Optional[str]
+    url: str | None
+    client_key: str | None
     admin_emails: tuple[str, ...]
     allow_signup: bool
 
@@ -136,7 +136,7 @@ def clear_auth_state():
         st.session_state.pop(key, None)
 
 
-def _try_refresh_token() -> Optional[dict[str, Any]]:
+def _try_refresh_token() -> dict[str, Any] | None:
     """Tenta renovar a sessao usando o refresh_token armazenado.
 
     Retorna os dados do usuario atualizados em caso de sucesso, ou None se falhar.
@@ -211,7 +211,7 @@ def sign_up_with_password(email: str, password: str) -> bool:
         raise RuntimeError(t("auth.error.signup_failed", error=exc)) from exc
 
 
-def get_authenticated_user() -> Optional[dict[str, Any]]:
+def get_authenticated_user() -> dict[str, Any] | None:
     """Retorna o usuario autenticado da sessao atual.
 
     Fluxo:
@@ -255,20 +255,20 @@ def get_authenticated_user() -> Optional[dict[str, Any]]:
     return user_data
 
 
-def get_authenticated_email(user: Optional[dict[str, Any]]) -> Optional[str]:
+def get_authenticated_email(user: dict[str, Any] | None) -> str | None:
     if not user:
         return None
     return user.get("email")
 
 
-def is_admin_user(user: Optional[dict[str, Any]]) -> bool:
+def is_admin_user(user: dict[str, Any] | None) -> bool:
     email = get_authenticated_email(user)
     if not email:
         return False
     return email.strip().lower() in get_auth_config().admin_emails
 
 
-def get_user_role_key(user: Optional[dict[str, Any]]) -> str:
+def get_user_role_key(user: dict[str, Any] | None) -> str:
     """Retorna a chave i18n do papel do usuario para ser resolvida via t()."""
     return "sidebar.role_admin" if is_admin_user(user) else "sidebar.role_user"
 

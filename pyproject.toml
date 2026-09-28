@@ -85,3 +85,12 @@ warn_return_any = true
 warn_unused_ignores = true
 strict_optional = false
 files = ["src/schema.py", "src/pipeline.py", "src/state.py", "src/ml/model_registry.py"]
+
+# Os stubs do numpy >= 2.3 usam `type X = ...` (PEP 695), que o mypy só aceita
+# com python_version >= 3.12. Como declaramos 3.10 (versão mínima suportada),
+# analisar esses stubs aborta a checagem. Não seguimos os stubs do numpy: o que
+# nos interessa aqui é o nosso próprio código, não a API do numpy.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true

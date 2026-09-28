@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-from typing import Optional
 
 import pandas as pd
 import streamlit as st
@@ -20,7 +19,7 @@ class _UploadedBytesIO(io.BytesIO):
 def load_data(
     file_bytes: bytes,
     file_name: str,
-    sheet_name: Optional[str],
+    sheet_name: str | None,
     delimiter: str = "auto",
 ) -> pd.DataFrame:
     return load_uploaded_file(
@@ -46,11 +45,11 @@ def set_processed_dataset(df_processed: pd.DataFrame, df_report: pd.DataFrame):
     st.session_state[SESSION_REPORT_KEY] = df_report
 
 
-def get_raw_dataframe() -> Optional[pd.DataFrame]:
+def get_raw_dataframe() -> pd.DataFrame | None:
     return st.session_state.get(SESSION_RAW_KEY)
 
 
-def get_processed_dataframe() -> Optional[pd.DataFrame]:
+def get_processed_dataframe() -> pd.DataFrame | None:
     return st.session_state.get(SESSION_PROCESSED_KEY)
 
 
@@ -58,7 +57,7 @@ def get_report_dataframe() -> pd.DataFrame:
     return st.session_state.get(SESSION_REPORT_KEY, pd.DataFrame())
 
 
-def get_active_dataframe(use_processed: bool) -> Optional[pd.DataFrame]:
+def get_active_dataframe(use_processed: bool) -> pd.DataFrame | None:
     if use_processed:
         df_processed = get_processed_dataframe()
         if df_processed is not None:

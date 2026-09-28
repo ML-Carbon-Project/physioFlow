@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from src.components.charts import show_fig
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import PRIMARY_COLOR
 from src.i18n import t, translate_anova_source
@@ -357,7 +357,7 @@ def _render_comparison_tab(result, df_clean: pd.DataFrame, response: str) -> str
     se = table["std"] / np.sqrt(table["n"].clip(lower=1))
     bars = ax.bar(table["group"], table["mean"], yerr=se, capsize=4,
                   color=PRIMARY_COLOR, alpha=0.85, edgecolor="white")
-    for bar, letter, m in zip(bars, table["group_letter"], table["mean"]):
+    for bar, letter in zip(bars, table["group_letter"], strict=True):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + se.max() * 0.15,
                 str(letter), ha="center", va="bottom", fontweight="bold", color="#b45309")
     ax.set_ylabel(response)

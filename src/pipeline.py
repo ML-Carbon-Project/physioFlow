@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -18,10 +18,12 @@ def _norm(s: str) -> str:
     return "".join(ch.lower() for ch in s if ch.isalnum())
 
 
-def find_first_existing(df: pd.DataFrame, candidates: Iterable[str]) -> Optional[str]:
+def find_first_existing(df: pd.DataFrame, candidates: Iterable[str]) -> str | None:
     cols = list(df.columns)
-    exact = {c: c for c in cols}
-    norm_map = {_norm(c): c for c in cols}
+    # Anotações explícitas: ``df.columns`` é tipado como Any pelo pandas e sem
+    # elas o mypy acusa "Returning Any" nos ``return`` abaixo.
+    exact: dict[str, str] = {c: c for c in cols}
+    norm_map: dict[str, str] = {_norm(c): c for c in cols}
 
     for cand in candidates:
         if cand in exact:
@@ -62,10 +64,10 @@ def _looks_like_datetime_object_series(series: pd.Series, sample: int = 50) -> b
     if head.empty:
         return False
     coerced = pd.to_datetime(head, errors="coerce")
-    return coerced.notna().sum() / len(head) >= 0.3
+    return bool(coerced.notna().sum() / len(head) >= 0.3)
 
 
-def find_date_column(df: pd.DataFrame, extra_candidates: Iterable[str] = ()) -> Optional[str]:
+def find_date_column(df: pd.DataFrame, extra_candidates: Iterable[str] = ()) -> str | None:
     """Detecta a coluna de data em ``df`` de forma robusta.
 
     Ordem de busca:
@@ -84,6 +86,9 @@ def find_date_column(df: pd.DataFrame, extra_candidates: Iterable[str] = ()) -> 
     if found is not None:
         return found
 
+    # Declarada aqui só para o mypy: sem isso ``col`` é Any e os ``return``
+    # viram "Returning Any". O nome da coluna é devolvido como está.
+    col: str
     for col in df.columns:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             return col
@@ -133,7 +138,7 @@ DELIMITER_SEP = {
 
 def load_uploaded_file(
     uploaded_file,
-    sheet_name: Optional[str] = None,
+    sheet_name: str | None = None,
     delimiter: str = "auto",
 ) -> pd.DataFrame:
     name = uploaded_file.name.lower()
@@ -157,7 +162,7 @@ def load_uploaded_file(
             df = pd.read_excel(uploaded_file)
     else:
         raise ValueError("Formato não suportado. Envie CSV, TXT/TSV ou Excel.")
-    
+
     # Strip spaces from column names. O BOM sobrevive a str.strip() (não é
     # whitespace), então sai explicitamente — cobre também planilhas Excel
     # gravadas a partir de um CSV com BOM.
@@ -219,7 +224,7 @@ def clean_fisiologia_data(
     # 3. Remover linhas onde todas as variáveis agronômicas/fisiológicas são nulas (pontos de grade não coletados)
     before = len(out)
     agronomic_candidates = [
-        "A", "E", "gs", "Ca", "Ci", "Ci/Ca", "EUA", "A/Ci", 
+        "A", "E", "gs", "Ca", "Ci", "Ci/Ca", "EUA", "A/Ci",
         "YII", "ETR", "Chl a", "Chl b", "IAF"
     ]
     resolved_vars = []
@@ -293,7 +298,7 @@ def clean_fisiologia_data(
     elif rep_method == "desdobrar":
         # Cria três dataframes independentes representando cada réplica
         dfs = []
-        
+
         # Réplica 1
         df1 = out.copy()
         df1["Replica"] = "Réplica 1"

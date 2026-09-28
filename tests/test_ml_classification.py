@@ -73,6 +73,7 @@ def test_scaler_option_changes_scale_sensitive_models():
     """O parâmetro ``scaler`` deve valer para todos os modelos: sem escala, o KNN
     (sensível a distância) degrada visivelmente frente ao StandardScaler."""
     import pytest as _pytest
+
     from src.ml.model_registry import build_model_pipeline as _build
 
     X, y = _penguins_xy()

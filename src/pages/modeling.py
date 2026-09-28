@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import streamlit as st
-from src.components.charts import show_fig
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
@@ -15,8 +14,15 @@ from sklearn.metrics import (
     r2_score,
     recall_score,
 )
-from sklearn.model_selection import GroupKFold, KFold, StratifiedKFold, cross_val_score, train_test_split
+from sklearn.model_selection import (
+    GroupKFold,
+    KFold,
+    StratifiedKFold,
+    cross_val_score,
+    train_test_split,
+)
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import MODEL_DEFAULT_FEATURES
 from src.i18n import t
@@ -115,7 +121,7 @@ def render():
     if cv_strategy == "group":
         group_col_candidates = [
             c for c in df.columns
-            if not pd.api.types.is_numeric_dtype(df[c]) and 2 <= df[c].nunique(dropna=True)
+            if not pd.api.types.is_numeric_dtype(df[c]) and df[c].nunique(dropna=True) >= 2
         ]
         # Adiciona uma opção sintética combinando Fazenda+Ponto quando ambas existem
         composite_label = None

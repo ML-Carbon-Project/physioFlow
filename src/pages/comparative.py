@@ -12,14 +12,12 @@ data/hora para o padrão horário e o fluxo cumulativo.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from src.components.charts import show_fig
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
 from src.pipeline import DATE_COLUMN_CANDIDATES, coerce_date_series, find_date_column
@@ -29,7 +27,7 @@ from src.pipeline import DATE_COLUMN_CANDIDATES, coerce_date_series, find_date_c
 DATE_CANDIDATES = DATE_COLUMN_CANDIDATES
 
 
-def _first_existing(df: pd.DataFrame, candidates) -> Optional[str]:
+def _first_existing(df: pd.DataFrame, candidates) -> str | None:
     for c in candidates:
         if c in df.columns:
             return c

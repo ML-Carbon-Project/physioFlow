@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
-from src.components.charts import show_fig
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import EDA_DEFAULT_DISTRIBUTION_COLUMNS, EDA_DEFAULT_PAIR_COLUMNS
 from src.i18n import t
+
 
 def _find_date_column(df: pd.DataFrame) -> str | None:
     from src.pipeline import find_date_column
@@ -504,7 +505,7 @@ def render():
             st.markdown(f"##### {t('eda.normality.title')}")
             st.caption(t("eda.normality.caption"))
             try:
-                from scipy.stats import shapiro, anderson, normaltest
+                from scipy.stats import anderson, normaltest, shapiro
             except ImportError:
                 st.warning(t("eda.inference.missing_scipy"))
             else:
@@ -752,9 +753,9 @@ def render():
                 lof_flag = pd.Series(0, index=data.index, dtype=int)
                 env_flag = pd.Series(0, index=data.index, dtype=int)
                 try:
+                    from sklearn.covariance import EllipticEnvelope
                     from sklearn.ensemble import IsolationForest
                     from sklearn.neighbors import LocalOutlierFactor
-                    from sklearn.covariance import EllipticEnvelope
                     from sklearn.preprocessing import StandardScaler
 
                     Xs = StandardScaler().fit_transform(data.to_numpy())

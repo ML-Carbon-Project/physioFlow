@@ -96,14 +96,14 @@ class TestCleanFisiologiaData:
     def test_clean_pipeline_media(self):
         # Executa limpeza no modo média
         df_clean, logs = clean_fisiologia_data(self.df_raw, rep_method="media")
-        
+
         # 1. Deve remover linhas com metadados essenciais nulos (linhas índice 2 (Cultura nula) e 3 (Uso atual nulo))
         # 2. Deve remover linhas onde todas as variáveis agronômicas são nulas (linha índice 1 e 4 (nulas))
         # Portanto, deve restar apenas a linha 0
         assert len(df_clean) == 1
         row = df_clean.iloc[0]
         assert row["Cultura"] == "Soja"
-        
+
         # Média de Clorofila a: mean(30.0, 28.0) = 29.0
         assert row["Chl_a_media"] == pytest.approx(29.0)
         # Média de Clorofila b: mean(10.0, 8.0) = 9.0
@@ -114,22 +114,22 @@ class TestCleanFisiologiaData:
     def test_clean_pipeline_desdobrar(self):
         # Executa limpeza no modo desdobrar (melt de réplicas)
         df_clean, logs = clean_fisiologia_data(self.df_raw, rep_method="desdobrar")
-        
+
         # A linha 0 (válida) tem réplicas 1, 2 e 3 válidas.
         # Deve gerar 3 linhas a partir da linha 0 original
         assert len(df_clean) >= 3
-        
+
         reps = df_clean[df_clean["Cultura"] == "Soja"]
         assert len(reps) == 3
-        
+
         r1 = reps[reps["Replica"] == "Réplica 1"].iloc[0]
         r2 = reps[reps["Replica"] == "Réplica 2"].iloc[0]
         r3 = reps[reps["Replica"] == "Réplica 3"].iloc[0]
-        
+
         assert r1["Chl_a_media"] == 30.0
         assert r2["Chl_a_media"] == 28.0
         assert r3["Chl_a_media"] is None or np.isnan(r3["Chl_a_media"])
-        
+
         assert r1["IAF_media"] == 3.0
         assert r2["IAF_media"] == 2.8
         assert r3["IAF_media"] == 3.2
@@ -246,7 +246,7 @@ class TestLoadUploadedFileEncoding:
         assert list(df.columns) == ["ID", "Ponto", "A"]
 
     def test_plain_utf8_unaffected(self):
-        csv = "ID,Ponto,A\nD-01,1,12.5\n".encode("utf-8")
+        csv = b"ID,Ponto,A\nD-01,1,12.5\n"
         df = load_uploaded_file(self._upload(csv))
         assert list(df.columns) == ["ID", "Ponto", "A"]
 

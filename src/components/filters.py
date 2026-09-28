@@ -137,7 +137,7 @@ def render_page_filters(df: pd.DataFrame) -> pd.DataFrame:
                         raise ValueError("nenhuma data válida")
                     min_date = valid_dates.min().date()
                     max_date = valid_dates.max().date()
-                    
+
                     if min_date < max_date:
                         selected_dates = st.date_input(
                             t("sidebar.filter_date_range", default="Intervalo de Datas"),

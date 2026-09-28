@@ -13,8 +13,6 @@ sessão; em ``"auto"`` o perfil é detectado pelo schema (:func:`detect_profile`
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import pandas as pd
 import streamlit as st
 
@@ -37,7 +35,7 @@ def set_profile_setting(value: str) -> None:
     st.session_state[SESSION_PROFILE_KEY] = value
 
 
-def resolve_profile(df: Optional[pd.DataFrame]) -> str:
+def resolve_profile(df: pd.DataFrame | None) -> str:
     """Perfil efetivo: respeita o override manual; em ``"auto"`` detecta pelo df."""
     setting = get_profile_setting()
     if setting in (PROFILE_PHYSIOLOGY, PROFILE_GENERIC):
@@ -47,7 +45,7 @@ def resolve_profile(df: Optional[pd.DataFrame]) -> str:
     return detect_profile(df)
 
 
-def is_physiology(df: Optional[pd.DataFrame]) -> bool:
+def is_physiology(df: pd.DataFrame | None) -> bool:
     """True quando o perfil efetivo é o de fisiologia."""
     return resolve_profile(df) == PROFILE_PHYSIOLOGY
 

@@ -5,9 +5,9 @@ podem ser testadas isoladamente com pytest.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from math import pi, sqrt
-from typing import Iterable, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -202,10 +202,10 @@ class ExperimentalAnova:
     fitted: np.ndarray
     factor_terms: list[str] = field(default_factory=list)
     # Campos de ANCOVA (preenchidos só quando há covariável):
-    covariate: Optional[str] = None
-    covariate_slope: Optional[float] = None
-    covariate_pvalue: Optional[float] = None
-    adjusted_means: Optional[dict[str, float]] = None
+    covariate: str | None = None
+    covariate_slope: float | None = None
+    covariate_pvalue: float | None = None
+    adjusted_means: dict[str, float] | None = None
 
 
 # Tokens que representam ausência/lixo num fator categórico e devem ser tratados
@@ -244,12 +244,12 @@ def fit_experimental_anova(
     df: pd.DataFrame,
     response: str,
     treatment: str,
-    block: Optional[str] = None,
-    factor2: Optional[str] = None,
-    row: Optional[str] = None,
-    column: Optional[str] = None,
-    factor3: Optional[str] = None,
-    covariate: Optional[str] = None,
+    block: str | None = None,
+    factor2: str | None = None,
+    row: str | None = None,
+    column: str | None = None,
+    factor3: str | None = None,
+    covariate: str | None = None,
 ) -> ExperimentalAnova:
     """Ajusta a ANOVA apropriada ao delineamento e devolve o quadro completo.
 
@@ -725,15 +725,15 @@ def dunnett_test(
     samples = [df.loc[df[factor].astype(str) == lvl, response].dropna().to_numpy() for lvl in others]
 
     res = dunnett(*samples, control=control_vals, alternative="two-sided")
-    mean_map = dict(zip(groups["group"], groups["mean"]))
-    n_map = dict(zip(groups["group"], groups["n"]))
+    mean_map = dict(zip(groups["group"], groups["mean"], strict=True))
+    n_map = dict(zip(groups["group"], groups["n"], strict=True))
     ctrl_mean = mean_map[control]
     rows = [{
         "group": control, "n": n_map[control], "mean": ctrl_mean,
         "diff_vs_control": 0.0, "p_value": float("nan"), "is_control": True,
         "differs": False,
     }]
-    for lvl, stat, p in zip(others, res.statistic, res.pvalue):
+    for lvl, _stat, p in zip(others, res.statistic, res.pvalue, strict=True):
         rows.append({
             "group": lvl, "n": n_map[lvl], "mean": mean_map[lvl],
             "diff_vs_control": float(mean_map[lvl] - ctrl_mean),
@@ -760,7 +760,7 @@ def compare_means(
     df_error: float,
     method: str = "tukey",
     alpha: float = 0.05,
-    means_override: Optional[dict[str, float]] = None,
+    means_override: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """Tabela de médias com letras de significância pelo método escolhido.
 
@@ -777,8 +777,8 @@ def compare_means(
     if means_override is not None:
         table["mean"] = table["group"].map(means_override)
         table = table.sort_values("mean", ascending=False).reset_index(drop=True)
-    means = dict(zip(table["group"], table["mean"]))
-    ns = dict(zip(table["group"], table["n"]))
+    means = dict(zip(table["group"], table["mean"], strict=True))
+    ns = dict(zip(table["group"], table["n"], strict=True))
     fn = MEAN_COMPARISON_METHODS.get(method, tukey_groups)
     letters = fn(means, ns, ms_error, df_error, alpha)
     table["group_letter"] = table["group"].map(letters)
@@ -833,8 +833,8 @@ def fit_split_plot(
     graus de liberdade de algum erro forem não positivos.
     """
     import statsmodels.api as sm
-    from statsmodels.formula.api import ols
     from scipy import stats as sps
+    from statsmodels.formula.api import ols
 
     factor_cols = [whole_plot, subplot, block]
     work = df[[response] + factor_cols].dropna().copy()
@@ -919,8 +919,8 @@ def _fit_composite(df, response, factor_cols, rename, formula, design, f_tests):
     Linhas sem teste explícito ficam com F/p = NaN (termos de erro/bloco).
     """
     import statsmodels.api as sm
-    from statsmodels.formula.api import ols
     from scipy import stats as sps
+    from statsmodels.formula.api import ols
 
     work = df[[response] + factor_cols].dropna().copy()
     work = clean_factor_levels(work, factor_cols)

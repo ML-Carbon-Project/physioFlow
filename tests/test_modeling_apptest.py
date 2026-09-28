@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -17,7 +16,12 @@ PENGUINS = Path(__file__).resolve().parents[1] / "data" / "sample" / "test" / "p
 
 
 def _app(path: str):
-    """Script executado pelo AppTest: semeia o penguins e renderiza a página."""
+    """Script executado pelo AppTest: semeia o penguins e renderiza a página.
+
+    O corpo desta função é extraído e executado isoladamente por
+    ``AppTest.from_function``, então os imports precisam ficar aqui dentro:
+    os do módulo não existem naquele contexto.
+    """
     import pandas as pd
     import streamlit as st
 
@@ -33,9 +37,26 @@ def _make_app():
     return AppTest.from_function(_app, kwargs={"path": str(PENGUINS)}, default_timeout=90)
 
 
+def _figures(at: AppTest):
+    """Figuras matplotlib (``st.pyplot``) presentes na árvore renderizada.
+
+    O nome do elemento mudou entre versões do Streamlit — ``imgs`` nas 1.4x,
+    ``image`` a partir da 1.5x —, então aceitamos os dois para o teste não
+    depender da versão instalada.
+    """
+    for name in ("image", "imgs"):
+        found = at.get(name)
+        if found:
+            return found
+    return []
+
+
 def _app_categorical_A():
     """Dataset genérico com uma coluna CATEGÓRICA chamada 'A' (colisão com o
-    default de fisiologia 'A' = fotossíntese)."""
+    default de fisiologia 'A' = fotossíntese).
+
+    Imports locais pelo mesmo motivo de ``_app``.
+    """
     import pandas as pd
     import streamlit as st
 
@@ -83,9 +104,8 @@ def test_classification_page_renders_headless():
     assert len(at.dataframe) >= 1
     # Cartões de destaque: melhor CV acurácia + melhor F1.
     assert len(at.metric) >= 2
-    # Matriz de confusão + gráfico de importâncias são figuras matplotlib
-    # (st.pyplot é exposto como "imgs" no AppTest).
-    assert len(at.get("imgs")) >= 1
+    # Matriz de confusão + gráfico de importâncias são figuras matplotlib.
+    assert len(_figures(at)) >= 1
 
 
 @pytest.mark.skipif(not PENGUINS.exists(), reason="fixture penguins ausente")

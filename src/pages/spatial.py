@@ -7,14 +7,12 @@ aplicação continue funcionando mesmo quando elas não estão instaladas.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-from src.components.charts import show_fig
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.i18n import t
 
@@ -25,7 +23,7 @@ _LAT_ALIASES = ("latitude", "lat", "y", "lat_dd", "latitude_dd")
 _LON_ALIASES = ("longitude", "lon", "long", "lng", "x", "lon_dd", "longitude_dd")
 
 
-def _find_coord_column(df: pd.DataFrame, aliases: tuple[str, ...]) -> Optional[str]:
+def _find_coord_column(df: pd.DataFrame, aliases: tuple[str, ...]) -> str | None:
     lookup = {c.strip().lower(): c for c in df.columns}
     for alias in aliases:
         if alias in lookup:
@@ -33,7 +31,7 @@ def _find_coord_column(df: pd.DataFrame, aliases: tuple[str, ...]) -> Optional[s
     return None
 
 
-def _normalize_coord_columns(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+def _normalize_coord_columns(df: pd.DataFrame) -> pd.DataFrame | None:
     """Rename whatever lat/lon variant the dataset uses to canonical names.
 
     Returns None if either column is missing.
@@ -244,8 +242,8 @@ def _render_moran_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     st.caption(t("spatial.moran.caption"))
 
     try:
-        from libpysal.weights import KNN
         from esda.moran import Moran, Moran_Local
+        from libpysal.weights import KNN
     except ImportError:
         st.warning(t("spatial.moran.missing_deps"))
         return
@@ -358,8 +356,8 @@ def _render_gistar_section(df: pd.DataFrame, numeric_cols: list[str]) -> None:
     st.caption(t("spatial.gistar.caption"))
 
     try:
-        from libpysal.weights import DistanceBand
         from esda.getisord import G_Local
+        from libpysal.weights import DistanceBand
         from scipy.spatial import cKDTree
     except ImportError:
         st.warning(t("spatial.gistar.missing_deps"))
@@ -485,7 +483,7 @@ def _render_utmgrid_section(df: pd.DataFrame, numeric_cols: list[str], cat_cols:
         return
 
     epsg = _utm_epsg_from_lon(work[LON_COL].mean())
-    geom = [Point(xy) for xy in zip(work[LON_COL], work[LAT_COL])]
+    geom = [Point(xy) for xy in zip(work[LON_COL], work[LAT_COL], strict=True)]
     gdf = gpd.GeoDataFrame(work, geometry=geom, crs="EPSG:4326").to_crs(epsg=epsg)
 
     cell = cell_km * 1000.0

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import seaborn as sns
 import streamlit as st
-from src.components.charts import show_fig
 
+from src.components.charts import show_fig
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import REGRESSION_PRESETS
 from src.i18n import t
